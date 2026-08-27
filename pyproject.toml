@@ -11,6 +11,8 @@ dependencies = [
     "databricks-connect (==16.4.19)"
 ]
 
+[project.scripts]
+train_agents = "agentic_sim.workflows.tasks.task_train_agents:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

@@ -1,0 +1,21 @@
+resources:
+  jobs:
+    agentic_sim_job:
+      name: agentic_sim
+
+      parameters:
+        - name: is_dev_run
+          default: "false"
+
+        - name: dev_catalog
+          default: "main_catalog"
+
+      tasks:
+        - task_key: train_agents
+
+          python_wheel_task:
+            package_name: agentic_sim
+            entry_point: train_agents
+            named_parameters:
+              is_dev_run: "{{job.parameters.is_dev_run}}"
+              dev_catalog: "{{job.parameters.dev_catalog}}"
