@@ -48,7 +48,7 @@ class Task(ABC):
 
         raw_config = dict(init_config or {})
 
-        self.init_config: dict[str, str] = {
+        self.init_config = {
             key: raw_config[key] for key in self.PARAMETER_KEYS if key in raw_config
         }
 
@@ -59,18 +59,16 @@ class Task(ABC):
             **dict(spark_config or {}),
         }
 
-        self._spark = spark
-        self.dbutils: Any | None = None
+        self.spark = spark or prepare_spark(
+            spark_config=self.spark_config,
+            runtime_mode=self.runtime_mode,
+            connect_profile=self.connect_profile,
+        )
 
-    @property
-    def spark(self) -> SparkSession:
-        if self._spark is None:
-            raise RuntimeError(
-                "Spark has not been initialized. "
-                "Task.launch() must be called before accessing Spark."
-            )
-
-        return self._spark
+        self.dbutils = prepare_dbutils(
+            runtime_mode=self.runtime_mode,
+            connect_profile=self.connect_profile,
+        )
 
     def launch(self) -> Any:
         start_time = time.perf_counter()
@@ -81,8 +79,6 @@ class Task(ABC):
         )
 
         try:
-            self._prepare_runtime()
-
             result = self.run()
 
         except Exception:

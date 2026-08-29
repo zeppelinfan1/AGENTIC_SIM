@@ -11,11 +11,11 @@ resources:
           default: "main_catalog"
 
       tasks:
-        - task_key: train_agents
+        - task_key: simulation_engine
 
           python_wheel_task:
             package_name: agentic_sim
-            entry_point: train_agents
+            entry_point: run_simulation
             named_parameters:
               is_dev_run: "{{job.parameters.is_dev_run}}"
               dev_catalog: "{{job.parameters.dev_catalog}}"
