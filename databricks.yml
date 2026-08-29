@@ -1,0 +1,19 @@
+# This is a Declarative Automation Bundle definition for AGENTIC_SIM.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: AGENTIC_SIM
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-e7e5d3d0-17fd.cloud.databricks.com
+
+  ## Optionally, there could be 'staging' or 'prod' targets here.
+  #
+  # prod:
+  #   workspace:
+  #     host: https://dbc-e7e5d3d0-17fd.cloud.databricks.com
