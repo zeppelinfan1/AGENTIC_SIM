@@ -4,8 +4,8 @@ from agentic_sim.workflows.logic.agents.config.agent_config import (
     AgentConfig,
     AgentState,
 )
-from agentic_sim.workflows.logic.agents.models.agent_observation_nn import (
-    AgentObservationNN,
+from agentic_sim.workflows.logic.agents.models.agent_brain import (
+    AgentBrain,
 )
 
 
@@ -17,4 +17,4 @@ class Agent:
 
     config: AgentConfig
     state: AgentState
-    brain: AgentObservationNN
+    brain: AgentBrain

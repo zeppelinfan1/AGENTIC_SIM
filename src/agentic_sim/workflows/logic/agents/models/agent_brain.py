@@ -91,7 +91,7 @@ class AgentActor(nn.Module):
         return self.network(embedding)
 
 
-class AgentObservationNN(nn.Module):
+class AgentBrain(nn.Module):
     """
     Complete decision network for an agent.
 

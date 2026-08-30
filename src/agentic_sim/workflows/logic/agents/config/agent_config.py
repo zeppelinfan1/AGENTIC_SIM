@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class AgentObservationNNConfig:
+class AgentBrainConfig:
     """
     Configuration for an agent's observation neural network.
     """
@@ -26,7 +26,7 @@ class AgentConfig:
 
     agent_name: str
     agent_type: str
-    brain_config: AgentObservationNNConfig
+    brain_config: AgentBrainConfig
     agent_parameters: dict
 
 

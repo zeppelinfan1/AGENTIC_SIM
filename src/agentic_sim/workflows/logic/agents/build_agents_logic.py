@@ -1,11 +1,11 @@
 from agentic_sim.workflows.logic.agents.agent import Agent
 from agentic_sim.workflows.logic.agents.config.agent_config import (
-    AgentObservationNNConfig,
+    AgentBrainConfig,
     AgentConfig,
     AgentState,
 )
-from agentic_sim.workflows.logic.agents.models.agent_observation_nn import (
-    AgentObservationNN,
+from agentic_sim.workflows.logic.agents.models.agent_brain import (
+    AgentBrain,
 )
 
 
@@ -17,7 +17,7 @@ class BuildAgents:
         self.logger = logger
 
         # Shared configuration/template
-        self.brain_config = AgentObservationNNConfig(
+        self.brain_config = AgentBrainConfig(
             observation_dim=5,
             embedding_dim=3,
             action_dim=2,
@@ -48,7 +48,7 @@ class BuildAgents:
             agent_state=self.initial_agent_state.copy(),
         )
 
-        brain = AgentObservationNN(
+        brain = AgentBrain(
             observation_dim=self.brain_config.observation_dim,
             embedding_dim=self.brain_config.embedding_dim,
             encoder_hidden_dim=self.brain_config.encoder_hidden_dim,
