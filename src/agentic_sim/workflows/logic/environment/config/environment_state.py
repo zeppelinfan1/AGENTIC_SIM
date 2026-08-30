@@ -13,12 +13,13 @@ class EnvironmentState:
 @dataclass
 class MarketState:
     """
-    State of the market.
+    State of an economic market visible to participating actors.
     """
 
     market_name: str
-    price_level: float = 1.0
-    available_supply: float = 1000.0
+    market_type: str
+
+    public_state: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
