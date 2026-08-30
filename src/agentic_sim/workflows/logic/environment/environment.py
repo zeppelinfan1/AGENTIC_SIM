@@ -1,4 +1,4 @@
-from agentic_sim.workflows.logic.environment.config.environment_state import (
+from agentic_sim.workflows.logic.environment.state import (
     EnvironmentState,
     InstitutionState,
     MarketState,
@@ -7,7 +7,7 @@ from agentic_sim.workflows.logic.environment.config.environment_state import (
 
 class Environment:
     """
-    Runtime representation of the simulated economic environment.
+    Runtime representation of the simulated economic world.
     """
 
     def __init__(
