@@ -31,3 +31,18 @@ class InstitutionState:
     cash: float
     assets: float
     debt: float
+
+
+@dataclass
+class AccountState:
+    """
+    State of an account held by an agent at an institution.
+    """
+
+    account_id: str
+    owner_agent_name: str
+    institution_name: str
+
+    balance: float = 0.0
+    outstanding_debt: float = 0.0
+    credit_limit: float = 0.0
