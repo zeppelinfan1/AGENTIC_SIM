@@ -10,6 +10,9 @@ resources:
         - name: dev_catalog
           default: "main_catalog"
 
+        - name: num_agents
+          default: "2"
+
       tasks:
         - task_key: simulation_engine
 
@@ -19,3 +22,4 @@ resources:
             named_parameters:
               is_dev_run: "{{job.parameters.is_dev_run}}"
               dev_catalog: "{{job.parameters.dev_catalog}}"
+              num_agents: "{{job.parameters.num_agents}}"

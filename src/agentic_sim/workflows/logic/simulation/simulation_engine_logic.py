@@ -4,15 +4,23 @@ from agentic_sim.workflows.logic.agents.build_agents_logic import BuildAgents
 
 class SimulationEngine(Task):
 
+    NAMED_PARAMETER_KEYS = (
+        "is_dev_run",
+        "dev_catalog",
+        "num_agents",
+    )
+
     def __init__(self, **kwargs) -> None:
-        # Task initialization
         super().__init__(**kwargs)
+
         self.is_dev_run = self.get_bool_parameter("is_dev_run")
         self.dev_catalog = self.init_config["dev_catalog"]
+        self.num_agents = int(self.init_config["num_agents"])
         self.logger.info(
-            "SimulationEngine parameters | is_dev_run=%s | dev_catalog=%s",
+            "SimulationEngine parameters | is_dev_run=%s | dev_catalog=%s | num_agents=%s",
             self.is_dev_run,
             self.dev_catalog,
+            self.num_agents,
         )
 
         # Validate current spark environment
@@ -31,15 +39,19 @@ class SimulationEngine(Task):
 
         # Class initialization
         self.build_agents = BuildAgents(
-            init_config=self.init_config,
             spark=self.spark,
             logger=self.logger,
+            num_agents=self.num_agents,
         )
 
     def run(self) -> None:
         self.logger.info("Starting simulation engine...")
 
-        # Agent building logic
-        self.build_agents.run()
+        self.agents = self.build_agents.run()
+
+        self.logger.info(
+            "Agent population initialized | num_agents=%s",
+            len(self.agents),
+        )
 
         self.logger.info("Simulation engine completed.")

@@ -18,14 +18,8 @@ from agentic_sim.workflows.runtime import (
 
 class Task(ABC):
 
-    BASE_PARAMETER_KEYS: tuple[str, ...] = (
-        "is_dev_run",
-        "dev_catalog",
-    )
-
-    PARAMETER_KEYS: tuple[str, ...] = BASE_PARAMETER_KEYS
-
-    REQUIRED_PARAMETER_KEYS: tuple[str, ...] = BASE_PARAMETER_KEYS
+    NAMED_PARAMETER_KEYS: tuple[str, ...] = ()
+    REQUIRED_PARAMETER_KEYS: tuple[str, ...] | None = None
 
     SPARK_CONFIG: Mapping[str, str] = {}
 
@@ -49,7 +43,9 @@ class Task(ABC):
         raw_config = dict(init_config or {})
 
         self.init_config = {
-            key: raw_config[key] for key in self.PARAMETER_KEYS if key in raw_config
+            key: raw_config[key]
+            for key in self.NAMED_PARAMETER_KEYS
+            if key in raw_config
         }
 
         self._validate_parameters()
@@ -112,8 +108,15 @@ class Task(ABC):
         )
 
     def _validate_parameters(self) -> None:
+
+        required_keys = (
+            self.NAMED_PARAMETER_KEYS
+            if self.REQUIRED_PARAMETER_KEYS is None
+            else self.REQUIRED_PARAMETER_KEYS
+        )
+
         missing_parameters = [
-            key for key in self.REQUIRED_PARAMETER_KEYS if key not in self.init_config
+            key for key in required_keys if key not in self.init_config
         ]
 
         if missing_parameters:
