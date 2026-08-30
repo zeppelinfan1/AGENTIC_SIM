@@ -22,18 +22,6 @@ class MarketState:
 
 
 @dataclass
-class InstitutionState:
-    """
-    State of an institution.
-    """
-
-    institution_name: str
-    cash: float
-    assets: float
-    debt: float
-
-
-@dataclass
 class AccountState:
     """
     State of an account held by an agent at an institution.
@@ -46,3 +34,17 @@ class AccountState:
     balance: float = 0.0
     outstanding_debt: float = 0.0
     credit_limit: float = 0.0
+
+
+@dataclass
+class InstitutionState:
+    """
+    State of a financial institution.
+    """
+
+    institution_name: str
+
+    available_liquidity: float = 0.0
+    capital: float = 0.0
+
+    accounts: list[AccountState] = field(default_factory=list)
