@@ -48,3 +48,7 @@ class InstitutionState:
     capital: float = 0.0
 
     accounts: list[AccountState] = field(default_factory=list)
+
+    @property
+    def total_deposits(self) -> float:
+        return sum(max(account.balance, 0.0) for account in self.accounts)
