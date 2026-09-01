@@ -2,24 +2,40 @@ resources:
   jobs:
     agentic_sim_job:
       name: agentic_sim
+    
+    parameters:
+      - name: is_dev_run
+        default: "false"
 
-      parameters:
-        - name: is_dev_run
-          default: "false"
+      - name: dev_catalog
+        default: "main_catalog"
 
-        - name: dev_catalog
-          default: "main_catalog"
+      - name: num_agents
+        default: "100"
 
-        - name: num_agents
-          default: "2"
+      - name: num_markets
+        default: "1"
 
-      tasks:
-        - task_key: simulation_engine
+      - name: num_institutions
+        default: "3"
 
-          python_wheel_task:
-            package_name: agentic_sim
-            entry_point: run_simulation
-            named_parameters:
-              is_dev_run: "{{job.parameters.is_dev_run}}"
-              dev_catalog: "{{job.parameters.dev_catalog}}"
-              num_agents: "{{job.parameters.num_agents}}"
+      - name: accounts_per_agent
+        default: "1"
+
+      - name: random_seed
+        default: "42"
+
+    tasks:
+      - task_key: simulation_engine
+
+        python_wheel_task:
+          package_name: agentic_sim
+          entry_point: run_simulation
+          named_parameters:
+            is_dev_run: "{{job.parameters.is_dev_run}}"
+            dev_catalog: "{{job.parameters.dev_catalog}}"
+            num_agents: "{{job.parameters.num_agents}}"
+            num_markets: "{{job.parameters.num_markets}}"
+            num_institutions: "{{job.parameters.num_institutions}}"
+            accounts_per_agent: "{{job.parameters.accounts_per_agent}}"
+            random_seed: "{{job.parameters.random_seed}}"

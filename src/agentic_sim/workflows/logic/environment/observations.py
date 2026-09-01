@@ -1,4 +1,6 @@
-from agentic_sim.workflows.logic.agents.agent import Agent
+from agentic_sim.workflows.logic.agents.agent import (
+    Agent,
+)
 from agentic_sim.workflows.logic.agents.config.agent_config import (
     AgentObservation,
 )
@@ -8,9 +10,6 @@ from agentic_sim.workflows.logic.environment.environment import (
 
 
 class ObservationBuilder:
-    """
-    Builds an actor-specific view of the environment.
-    """
 
     def build_agent_observation(
         self,
@@ -18,23 +17,50 @@ class ObservationBuilder:
         environment: Environment,
     ) -> AgentObservation:
 
-        accounts = []
+        # --------------------------------------------------
+        # Agent → Account
+        # --------------------------------------------------
 
-        for institution in environment.institutions:
-            for account in institution.accounts:
+        agent_accounts = [
+            account
+            for account in environment.accounts
+            if account.agent_id == agent.config.agent_id
+        ]
 
-                if account.owner_agent_name == agent.config.agent_name:
-                    accounts.append(account)
+        # --------------------------------------------------
+        # Account → Institution
+        # --------------------------------------------------
 
-        observation_parameters = {
-            "agent_state": agent.state.agent_state,
-            "accounts": accounts,
-            "markets": environment.markets,
-            "step": environment.state.step,
-        }
+        institution_ids = {account.institution_id for account in agent_accounts}
+
+        institutions = [
+            institution
+            for institution in environment.institutions
+            if institution.institution_id in institution_ids
+        ]
+
+        # --------------------------------------------------
+        # Institution → Market
+        # --------------------------------------------------
+
+        market_ids = {institution.market_id for institution in institutions}
+
+        markets = [
+            market for market in environment.markets if market.market_id in market_ids
+        ]
+
+        # --------------------------------------------------
+        # Build semantic observation
+        # --------------------------------------------------
 
         return AgentObservation(
             agent_name=agent.config.agent_name,
             observation_type="transactional_agent",
-            observation_parameters=observation_parameters,
+            observation_parameters={
+                "agent_state": agent.state.agent_state,
+                "accounts": agent_accounts,
+                "institutions": institutions,
+                "markets": markets,
+                "environment_step": (environment.state.step),
+            },
         )

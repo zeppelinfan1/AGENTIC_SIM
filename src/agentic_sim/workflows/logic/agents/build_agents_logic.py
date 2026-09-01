@@ -11,7 +11,7 @@ from agentic_sim.workflows.logic.agents.models.agent_brain import (
 
 class BuildAgents:
 
-    def __init__(self, spark, logger, num_agents: int) -> None:
+    def __init__(self, num_agents: int, spark, logger) -> None:
         self.num_agents = num_agents
         self.spark = spark
         self.logger = logger
@@ -34,9 +34,11 @@ class BuildAgents:
         }
 
     def _build_agent(self, agent_number: int) -> Agent:
-        agent_name = f"agent_{agent_number:03d}"
+        agent_id = f"agent_{agent_number:03d}"
+        agent_name = f"Agent {agent_number}"
 
         agent_config = AgentConfig(
+            agent_id=agent_id,
             agent_name=agent_name,
             agent_type=self.agent_type,
             brain_config=self.brain_config,
