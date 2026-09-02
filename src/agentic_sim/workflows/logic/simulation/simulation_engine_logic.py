@@ -6,6 +6,9 @@ from agentic_sim.workflows.logic.agents.build_agents_logic import (
 from agentic_sim.workflows.logic.environment.build_environment_logic import (
     BuildEnvironment,
 )
+from agentic_sim.workflows.logic.environment.extractor import (
+    VisibleFieldExtractor,
+)
 from agentic_sim.workflows.logic.environment.observations import (
     ObservationBuilder,
 )
@@ -87,7 +90,11 @@ class SimulationEngine(Task):
             logger=self.logger,
         )
 
-        self.observation_builder = ObservationBuilder()
+        self.visible_field_extractor = VisibleFieldExtractor()
+
+        self.observation_builder = ObservationBuilder(
+            visible_field_extractor=self.visible_field_extractor,
+        )
 
     def run(self) -> None:
         self.logger.info("Starting simulation engine...")

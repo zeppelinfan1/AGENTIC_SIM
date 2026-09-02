@@ -5,6 +5,10 @@ from agentic_sim.workflows.logic.environment.state import (
     MarketState,
 )
 
+from agentic_sim.workflows.logic.environment.visibility.resolver import (
+    VisibilityResolver,
+)
+
 
 class Environment:
     """
@@ -22,3 +26,7 @@ class Environment:
         self.markets = markets
         self.institutions = institutions
         self.accounts = accounts
+
+        self.visibility = VisibilityResolver(
+            environment=self,
+        )

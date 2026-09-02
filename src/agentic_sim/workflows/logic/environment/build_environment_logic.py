@@ -8,6 +8,9 @@ from agentic_sim.workflows.logic.environment.state import (
     InstitutionState,
     MarketState,
 )
+from agentic_sim.workflows.logic.environment.visibility.fields import (
+    VisibilityField,
+)
 
 
 class BuildEnvironment:
@@ -37,9 +40,19 @@ class BuildEnvironment:
 
         return [
             MarketState(
-                market_id=f"market_{i:03d}",
-                market_name=f"Market {i}",
-                market_type="general",
+                market_id=i,
+                market_name=VisibilityField(
+                    value=f"market_{i:03d}",
+                    visibility_type="public",
+                ),
+                price_level=VisibilityField(
+                    value=1.0,
+                    visibility_type="public",
+                ),
+                available_supply=VisibilityField(
+                    value=1000.0,
+                    visibility_type="cascading",
+                ),
             )
             for i in range(
                 1,
@@ -64,11 +77,20 @@ class BuildEnvironment:
             )
 
             institution = InstitutionState(
-                institution_id=f"institution_{i:03d}",
-                institution_name=f"Institution {i}",
+                institution_id=i,
                 market_id=market.market_id,
-                available_liquidity=10_000.0,
-                capital=5_000.0,
+                institution_name=VisibilityField(
+                    value=f"institution_{i:03d}",
+                    visibility_type="public",
+                ),
+                available_liquidity=VisibilityField(
+                    value=10_000.0,
+                    visibility_type="restricted",
+                ),
+                capital=VisibilityField(
+                    value=5_000.0,
+                    visibility_type="restricted",
+                ),
             )
 
             institutions.append(
@@ -98,12 +120,25 @@ class BuildEnvironment:
                 )
 
                 account = AccountState(
-                    account_id=f"account_{account_number:05d}",
+                    account_id=account_number,
                     agent_id=agent.config.agent_id,
                     institution_id=institution.institution_id,
-                    balance=1000.0,
-                    outstanding_debt=0.0,
-                    credit_limit=500.0,
+                    account_name=VisibilityField(
+                        value=f"Account {account_number}",
+                        visibility_type="private",
+                    ),
+                    balance=VisibilityField(
+                        value=1000.0,
+                        visibility_type="private",
+                    ),
+                    outstanding_debt=VisibilityField(
+                        value=0.0,
+                        visibility_type="private",
+                    ),
+                    credit_limit=VisibilityField(
+                        value=500.0,
+                        visibility_type="private",
+                    ),
                 )
 
                 accounts.append(

@@ -24,7 +24,7 @@ class AgentConfig:
     Configuration for an agent.
     """
 
-    agent_id: str
+    agent_id: int
     agent_name: str
     agent_type: str
     brain_config: AgentBrainConfig
