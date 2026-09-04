@@ -10,6 +10,9 @@ resources:
       - name: dev_catalog
         default: "main_catalog"
 
+      - name: num_steps
+        default: "10"
+
       - name: num_agents
         default: "100"
 
@@ -34,6 +37,7 @@ resources:
           named_parameters:
             is_dev_run: "{{job.parameters.is_dev_run}}"
             dev_catalog: "{{job.parameters.dev_catalog}}"
+            num_steps: "{{job.parameters.num_steps}}"
             num_agents: "{{job.parameters.num_agents}}"
             num_markets: "{{job.parameters.num_markets}}"
             num_institutions: "{{job.parameters.num_institutions}}"

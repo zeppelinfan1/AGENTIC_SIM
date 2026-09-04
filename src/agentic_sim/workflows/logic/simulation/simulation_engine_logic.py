@@ -1,16 +1,8 @@
 from agentic_sim.workflows.task import Task
 
-from agentic_sim.workflows.logic.agents.build_agents_logic import (
-    BuildAgents,
-)
-from agentic_sim.workflows.logic.environment.build_environment_logic import (
-    BuildEnvironment,
-)
-from agentic_sim.workflows.logic.environment.extractor import (
-    VisibleFieldExtractor,
-)
-from agentic_sim.workflows.logic.environment.perception import (
-    Perception,
+from agentic_sim.workflows.logic.simulation.build_simulation_logic import (
+    BuildSimulation,
+    SimulationContext,
 )
 
 
@@ -19,6 +11,7 @@ class SimulationEngine(Task):
     NAMED_PARAMETER_KEYS: tuple[str, ...] = (
         "is_dev_run",
         "dev_catalog",
+        "num_steps",
         "num_agents",
         "num_markets",
         "num_institutions",
@@ -33,17 +26,39 @@ class SimulationEngine(Task):
         self.is_dev_run = self.get_bool_parameter(
             "is_dev_run",
         )
+
         self.dev_catalog = self.init_config["dev_catalog"]
-        self.num_agents = int(self.init_config["num_agents"])
-        self.num_markets = int(self.init_config["num_markets"])
-        self.num_institutions = int(self.init_config["num_institutions"])
-        self.accounts_per_agent = int(self.init_config["accounts_per_agent"])
-        self.random_seed = int(self.init_config["random_seed"])
+
+        self.num_steps = int(
+            self.init_config["num_steps"],
+        )
+
+        self.num_agents = int(
+            self.init_config["num_agents"],
+        )
+
+        self.num_markets = int(
+            self.init_config["num_markets"],
+        )
+
+        self.num_institutions = int(
+            self.init_config["num_institutions"],
+        )
+
+        self.accounts_per_agent = int(
+            self.init_config["accounts_per_agent"],
+        )
+
+        self.random_seed = int(
+            self.init_config["random_seed"],
+        )
+
         self.logger.info(
             (
                 "SimulationEngine parameters | "
                 "is_dev_run=%s | "
                 "dev_catalog=%s | "
+                "num_steps=%s | "
                 "num_agents=%s | "
                 "num_markets=%s | "
                 "num_institutions=%s | "
@@ -52,6 +67,7 @@ class SimulationEngine(Task):
             ),
             self.is_dev_run,
             self.dev_catalog,
+            self.num_steps,
             self.num_agents,
             self.num_markets,
             self.num_institutions,
@@ -75,88 +91,84 @@ class SimulationEngine(Task):
             current_environment["current_schema"],
         )
 
-        # Component initialization
-        self.build_agents = BuildAgents(
+        # Simulation builder
+        self.build_simulation = BuildSimulation(
             num_agents=self.num_agents,
-            spark=self.spark,
-            logger=self.logger,
-        )
-
-        self.build_environment = BuildEnvironment(
             num_markets=self.num_markets,
             num_institutions=self.num_institutions,
             accounts_per_agent=self.accounts_per_agent,
             random_seed=self.random_seed,
+            spark=self.spark,
             logger=self.logger,
         )
 
-        self.visible_field_extractor = VisibleFieldExtractor()
+    def _run_step(
+        self,
+        *,
+        simulation: SimulationContext,
+    ) -> None:
 
-        self.perception = Perception(
-            visible_field_extractor=self.visible_field_extractor,
-        )
+        step = simulation.environment.state.step
 
-    def run(self) -> None:
-        self.logger.info("Starting simulation engine...")
-
-        # 1. Build agents
-        agents = self.build_agents.run()
         self.logger.info(
-            "Agent population initialized | count=%s",
-            len(agents),
+            "Starting simulation step | step=%s",
+            step,
         )
 
-        # 2. Build environment
-        environment = self.build_environment.run(
-            agents=agents,
-        )
-        self.logger.info(
-            (
-                "Environment initialized | "
-                "markets=%s | "
-                "institutions=%s | "
-                "accounts=%s"
-            ),
-            len(environment.markets),
-            len(environment.institutions),
-            len(environment.accounts),
-        )
+        for agent in simulation.agents:
 
-        # 3. Build stable perception topology
-        self.perception.build(
-            agents=agents,
-            environment=environment,
-        )
-        self.logger.info(
-            "Perception topology initialized | agents=%s",
-            len(self.perception.linkages),
-        )
-
-        # 4. Generate current perceptions
-        observations = []
-
-        for agent in agents:
-
-            observation = self.perception.perceive(
+            # 1. Perceive current environment
+            observation = simulation.perception.perceive(
                 agent=agent,
-                environment=environment,
+                environment=simulation.environment,
             )
-            observations.append(
-                observation,
-            )
+
             self.logger.info(
                 (
                     "Agent perception generated | "
+                    "step=%s | "
                     "agent_id=%s | "
                     "observation_type=%s"
                 ),
+                step,
                 agent.config.agent_id,
                 observation.observation_type,
             )
 
+            # Future:
+            #
+            # 2. Convert observation to tensor
+            # 3. StateEncoder creates embedding
+            # 4. AgentActor chooses action
+            # 5. Submit action to environment
+
+        # Future:
+        #
+        # 6. Environment resolves actions
+        # 7. Calculate rewards
+        # 8. Perform learning
+
         self.logger.info(
-            ("Simulation initialization complete | " "agents=%s | " "observations=%s"),
-            len(agents),
-            len(observations),
+            "Simulation step completed | step=%s",
+            step,
         )
-        self.logger.info("Simulation engine completed.")
+
+    def run(self) -> None:
+
+        self.logger.info("Starting simulation engine...")
+
+        simulation = self.build_simulation.run()
+
+        for _ in range(self.num_steps):
+
+            self._run_step(
+                simulation=simulation,
+            )
+
+            simulation.environment.state.step += 1
+
+        self.logger.info(
+            ("Simulation engine completed | " "steps_completed=%s | " "final_step=%s"),
+            self.num_steps,
+            simulation.environment.state.step,
+        )
