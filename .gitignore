@@ -1,6 +1,0 @@
-.databricks/
-scratch/
-.vscode/
-
-__pycache__/
-*.pyc
