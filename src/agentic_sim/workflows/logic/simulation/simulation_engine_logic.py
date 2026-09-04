@@ -9,8 +9,8 @@ from agentic_sim.workflows.logic.environment.build_environment_logic import (
 from agentic_sim.workflows.logic.environment.extractor import (
     VisibleFieldExtractor,
 )
-from agentic_sim.workflows.logic.environment.observations import (
-    ObservationBuilder,
+from agentic_sim.workflows.logic.environment.perception import (
+    Perception,
 )
 
 
@@ -92,21 +92,21 @@ class SimulationEngine(Task):
 
         self.visible_field_extractor = VisibleFieldExtractor()
 
-        self.observation_builder = ObservationBuilder(
+        self.perception = Perception(
             visible_field_extractor=self.visible_field_extractor,
         )
 
     def run(self) -> None:
         self.logger.info("Starting simulation engine...")
 
-        # Build agents
+        # 1. Build agents
         agents = self.build_agents.run()
         self.logger.info(
             "Agent population initialized | count=%s",
             len(agents),
         )
 
-        # Build environment
+        # 2. Build environment
         environment = self.build_environment.run(
             agents=agents,
         )
@@ -122,22 +122,34 @@ class SimulationEngine(Task):
             len(environment.accounts),
         )
 
-        # Build observations for each agent
+        # 3. Build stable perception topology
+        self.perception.build(
+            agents=agents,
+            environment=environment,
+        )
+        self.logger.info(
+            "Perception topology initialized | agents=%s",
+            len(self.perception.linkages),
+        )
+
+        # 4. Generate current perceptions
         observations = []
 
         for agent in agents:
 
-            observation = self.observation_builder.build_agent_observation(
+            observation = self.perception.perceive(
                 agent=agent,
                 environment=environment,
             )
-
             observations.append(
                 observation,
             )
-
             self.logger.info(
-                ("Agent observation built | " "agent_id=%s | " "observation_type=%s"),
+                (
+                    "Agent perception generated | "
+                    "agent_id=%s | "
+                    "observation_type=%s"
+                ),
                 agent.config.agent_id,
                 observation.observation_type,
             )
@@ -147,5 +159,4 @@ class SimulationEngine(Task):
             len(agents),
             len(observations),
         )
-
         self.logger.info("Simulation engine completed.")
