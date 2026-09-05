@@ -7,7 +7,7 @@ from agentic_sim.workflows.logic.agents.config.agent_config import (
 from agentic_sim.workflows.logic.environment.environment import (
     Environment,
 )
-from agentic_sim.workflows.logic.environment.extractor import (
+from agentic_sim.workflows.logic.environment.perception.extractor import (
     VisibleFieldExtractor,
 )
 
