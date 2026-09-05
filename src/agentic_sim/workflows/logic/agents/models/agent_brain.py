@@ -52,7 +52,7 @@ class ContrastiveLoss(nn.Module):
 
         distances = torch.linalg.vector_norm(
             embedding_a - embedding_b,
-            dim=1,
+            dim=-1,
         )
 
         positive_loss = labels * distances.pow(2)
@@ -107,7 +107,6 @@ class AgentBrain(nn.Module):
 
     def __init__(
         self,
-        observation_dim: int,
         embedding_dim: int = 3,
         encoder_hidden_dim: int = 512,
         actor_hidden_dim: int = 128,

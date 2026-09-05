@@ -18,7 +18,6 @@ class BuildAgents:
 
         # Shared configuration/template
         self.brain_config = AgentBrainConfig(
-            observation_dim=5,
             embedding_dim=3,
             action_dim=2,
         )
@@ -26,8 +25,6 @@ class BuildAgents:
         self.agent_type = "transactional"
 
         self.initial_agent_state = {
-            "cash": 1000.0,
-            "debt": 0.0,
             "income": 100.0,
             "resources": 0.0,
             "time": 0.0,
@@ -50,7 +47,6 @@ class BuildAgents:
         )
 
         brain = AgentBrain(
-            observation_dim=self.brain_config.observation_dim,
             embedding_dim=self.brain_config.embedding_dim,
             encoder_hidden_dim=self.brain_config.encoder_hidden_dim,
             actor_hidden_dim=self.brain_config.actor_hidden_dim,
