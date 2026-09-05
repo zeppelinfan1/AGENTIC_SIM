@@ -2,11 +2,12 @@ from typing import TYPE_CHECKING
 
 from agentic_sim.workflows.logic.environment.state import (
     AccountState,
+    CompanyState,
     InstitutionState,
     MarketState,
 )
-from agentic_sim.workflows.logic.environment.visibility.fields import (
-    VisibilityField,
+from agentic_sim.workflows.logic.environment.metadata.fields import (
+    MetadataField,
     VisibilityType,
 )
 from agentic_sim.workflows.logic.environment.visibility.rules import (
@@ -50,7 +51,7 @@ class VisibilityResolver:
         *,
         actor_id: int,
         target_object: object,
-        field: VisibilityField,
+        field: MetadataField,
     ) -> bool:
         rule = self.rules[field.visibility_type]
 
@@ -91,9 +92,10 @@ class VisibilityResolver:
         Resolve directional visibility through:
 
         Agent
-          -> Account
-          -> Institution
-          -> Market
+        -> Account
+        -> Institution
+        -> Market
+        -> Company
         """
 
         # Agent -> own Account
@@ -103,33 +105,36 @@ class VisibilityResolver:
         ):
             return target_object.agent_id == actor_id
 
-        # Find institutions accessible through
-        # the actor's own accounts.
+        # Institutions accessible through the actor's accounts
         institution_ids = {
             account.institution_id
             for account in self.environment.accounts
             if account.agent_id == actor_id
         }
 
-        # Agent -> Account -> Institution
         if isinstance(
             target_object,
             InstitutionState,
         ):
             return target_object.institution_id in institution_ids
 
-        # Find markets accessible through those
-        # institutions.
+        # Markets accessible through those institutions
         market_ids = {
             institution.market_id
             for institution in self.environment.institutions
             if institution.institution_id in institution_ids
         }
 
-        # Agent -> Account -> Institution -> Market
         if isinstance(
             target_object,
             MarketState,
+        ):
+            return target_object.market_id in market_ids
+
+        # Companies operating in accessible markets
+        if isinstance(
+            target_object,
+            CompanyState,
         ):
             return target_object.market_id in market_ids
 

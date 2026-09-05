@@ -46,6 +46,7 @@ class BuildSimulation:
         *,
         num_agents: int,
         num_markets: int,
+        num_companies: int,
         num_institutions: int,
         accounts_per_agent: int,
         random_seed: int,
@@ -64,6 +65,7 @@ class BuildSimulation:
         self.build_environment = BuildEnvironment(
             num_markets=num_markets,
             num_institutions=num_institutions,
+            num_companies=num_companies,
             accounts_per_agent=accounts_per_agent,
             random_seed=random_seed,
             logger=logger,
@@ -94,10 +96,12 @@ class BuildSimulation:
             (
                 "Environment initialized | "
                 "markets=%s | "
+                "companies=%s | "
                 "institutions=%s | "
                 "accounts=%s"
             ),
             len(environment.markets),
+            len(environment.companies),
             len(environment.institutions),
             len(environment.accounts),
         )

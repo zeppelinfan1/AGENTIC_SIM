@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from agentic_sim.workflows.logic.environment.visibility.fields import VisibilityField
+from agentic_sim.workflows.logic.environment.metadata.fields import MetadataField
 
 
 @dataclass
@@ -22,11 +22,27 @@ class AccountState:
     agent_id: int
     institution_id: int
 
-    account_name: VisibilityField[str]
+    account_name: MetadataField[str]
 
-    balance: VisibilityField[float]
-    outstanding_debt: VisibilityField[float]
-    credit_limit: VisibilityField[float]
+    balance: MetadataField[float]
+    outstanding_debt: MetadataField[float]
+    credit_limit: MetadataField[float]
+
+
+@dataclass
+class CompanyState:
+    """
+    State of an economic company operating within a market.
+    """
+
+    company_id: int
+    market_id: int
+
+    company_name: MetadataField[str]
+
+    capital: MetadataField[float]
+    inventory: MetadataField[float]
+    production_capacity: MetadataField[float]
 
 
 @dataclass
@@ -38,10 +54,10 @@ class InstitutionState:
     institution_id: int
     market_id: int
 
-    institution_name: VisibilityField[str]
+    institution_name: MetadataField[str]
 
-    available_liquidity: VisibilityField[float]
-    capital: VisibilityField[float]
+    available_liquidity: MetadataField[float]
+    capital: MetadataField[float]
 
 
 @dataclass
@@ -52,7 +68,7 @@ class MarketState:
 
     market_id: int
 
-    market_name: VisibilityField[str]
+    market_name: MetadataField[str]
 
-    price_level: VisibilityField[float]
-    available_supply: VisibilityField[float]
+    price_level: MetadataField[float]
+    available_supply: MetadataField[float]

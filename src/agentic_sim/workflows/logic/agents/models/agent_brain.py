@@ -12,7 +12,6 @@ class StateEncoder(nn.Module):
 
     def __init__(
         self,
-        input_dim: int,
         embedding_dim: int = 3,
         hidden_dim: int = 512,
         dropout: float = 0.1,
@@ -20,7 +19,7 @@ class StateEncoder(nn.Module):
         super().__init__()
 
         self.network = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
+            nn.LazyLinear(hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
@@ -118,7 +117,6 @@ class AgentBrain(nn.Module):
         super().__init__()
 
         self.encoder = StateEncoder(
-            input_dim=observation_dim,
             embedding_dim=embedding_dim,
             hidden_dim=encoder_hidden_dim,
             dropout=dropout,

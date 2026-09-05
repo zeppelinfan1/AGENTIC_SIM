@@ -7,8 +7,6 @@ class AgentBrainConfig:
     Configuration for an agent's observation neural network.
     """
 
-    observation_dim: int
-
     embedding_dim: int = 3
     encoder_hidden_dim: int = 512
     actor_hidden_dim: int = 128

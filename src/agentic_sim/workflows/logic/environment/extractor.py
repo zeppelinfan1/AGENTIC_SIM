@@ -3,11 +3,12 @@ from typing import TYPE_CHECKING, TypeAlias
 
 from agentic_sim.workflows.logic.environment.state import (
     AccountState,
+    CompanyState,
     InstitutionState,
     MarketState,
 )
-from agentic_sim.workflows.logic.environment.visibility.fields import (
-    VisibilityField,
+from agentic_sim.workflows.logic.environment.metadata.fields import (
+    MetadataField,
 )
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     )
 
 
-VisibleTarget: TypeAlias = AccountState | InstitutionState | MarketState
+VisibleTarget: TypeAlias = AccountState | InstitutionState | MarketState | CompanyState
 
 
 class VisibleFieldExtractor:
@@ -42,7 +43,7 @@ class VisibleFieldExtractor:
 
             if not isinstance(
                 value,
-                VisibilityField,
+                MetadataField,
             ):
                 continue
 

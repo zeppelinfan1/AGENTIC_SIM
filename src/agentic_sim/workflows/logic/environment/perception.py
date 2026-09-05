@@ -25,6 +25,7 @@ class AgentPerceptionLinkage:
     account_ids: tuple[int, ...]
     institution_ids: tuple[int, ...]
     market_ids: tuple[int, ...]
+    company_ids: tuple[int, ...]
 
 
 class Perception:
@@ -98,11 +99,21 @@ class Perception:
                 )
             )
 
+            # Market -> Company
+            company_ids = tuple(
+                sorted(
+                    company.company_id
+                    for company in environment.companies
+                    if company.market_id in market_ids
+                )
+            )
+
             self.linkages[actor_id] = AgentPerceptionLinkage(
                 agent_id=actor_id,
                 account_ids=account_ids,
                 institution_ids=institution_ids,
                 market_ids=market_ids,
+                company_ids=company_ids,
             )
 
     def perceive(
@@ -140,6 +151,12 @@ class Perception:
             market
             for market in environment.markets
             if market.market_id in linkage.market_ids
+        ]
+
+        companies = [
+            company
+            for company in environment.companies
+            if company.company_id in linkage.company_ids
         ]
 
         # Apply field-level visibility
@@ -187,6 +204,21 @@ class Perception:
             for market in markets
         ]
 
+        visible_companies = [
+            {
+                "company_id": company.company_id,
+                "market_id": company.market_id,
+                "visible_fields": (
+                    self.visible_field_extractor.get_visible_fields(
+                        actor_id=actor_id,
+                        target_object=company,
+                        environment=environment,
+                    )
+                ),
+            }
+            for company in companies
+        ]
+
         return AgentObservation(
             agent_name=agent.config.agent_name,
             observation_type="transactional_agent",
@@ -196,5 +228,6 @@ class Perception:
                 "accounts": visible_accounts,
                 "institutions": visible_institutions,
                 "markets": visible_markets,
+                "companies": visible_companies,
             },
         )

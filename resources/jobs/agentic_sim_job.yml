@@ -19,6 +19,9 @@ resources:
       - name: num_markets
         default: "1"
 
+      - name: num_companies
+        default: "2"
+
       - name: num_institutions
         default: "3"
 
@@ -40,6 +43,7 @@ resources:
             num_steps: "{{job.parameters.num_steps}}"
             num_agents: "{{job.parameters.num_agents}}"
             num_markets: "{{job.parameters.num_markets}}"
+            num_companies: "{{job.parameters.num_companies}}"
             num_institutions: "{{job.parameters.num_institutions}}"
             accounts_per_agent: "{{job.parameters.accounts_per_agent}}"
             random_seed: "{{job.parameters.random_seed}}"

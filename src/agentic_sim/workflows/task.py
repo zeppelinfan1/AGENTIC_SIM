@@ -95,8 +95,8 @@ class Task(ABC):
         return result
 
     def _prepare_runtime(self) -> None:
-        if self._spark is None:
-            self._spark = prepare_spark(
+        if self.spark is None:
+            self.spark = prepare_spark(
                 spark_config=self.spark_config,
                 runtime_mode=self.runtime_mode,
                 connect_profile=self.connect_profile,

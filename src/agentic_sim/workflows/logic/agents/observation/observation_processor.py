@@ -46,6 +46,7 @@ class ObservationProcessor:
         "accounts",
         "institutions",
         "markets",
+        "companies",
     )
 
     def _extract_numeric_fields(

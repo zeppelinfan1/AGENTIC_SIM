@@ -1,5 +1,6 @@
 from agentic_sim.workflows.logic.environment.state import (
     AccountState,
+    CompanyState,
     EnvironmentState,
     InstitutionState,
     MarketState,
@@ -19,11 +20,13 @@ class Environment:
         self,
         state: EnvironmentState,
         markets: list[MarketState],
+        companies: list[CompanyState],
         institutions: list[InstitutionState],
         accounts: list[AccountState],
     ) -> None:
         self.state = state
         self.markets = markets
+        self.companies = companies
         self.institutions = institutions
         self.accounts = accounts
 

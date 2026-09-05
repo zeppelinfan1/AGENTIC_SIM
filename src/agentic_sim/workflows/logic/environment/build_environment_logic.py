@@ -4,12 +4,13 @@ from agentic_sim.workflows.logic.agents.agent import Agent
 from agentic_sim.workflows.logic.environment.environment import Environment
 from agentic_sim.workflows.logic.environment.state import (
     AccountState,
+    CompanyState,
     EnvironmentState,
     InstitutionState,
     MarketState,
 )
-from agentic_sim.workflows.logic.environment.visibility.fields import (
-    VisibilityField,
+from agentic_sim.workflows.logic.environment.metadata.fields import (
+    MetadataField,
 )
 
 
@@ -19,6 +20,7 @@ class BuildEnvironment:
         self,
         num_markets: int,
         num_institutions: int,
+        num_companies: int,
         accounts_per_agent: int,
         random_seed: int,
         logger,
@@ -26,6 +28,7 @@ class BuildEnvironment:
 
         self.num_markets = num_markets
         self.num_institutions = num_institutions
+        self.num_companies = num_companies
         self.accounts_per_agent = accounts_per_agent
         self.random_seed = random_seed
         self.logger = logger
@@ -41,15 +44,15 @@ class BuildEnvironment:
         return [
             MarketState(
                 market_id=i,
-                market_name=VisibilityField(
+                market_name=MetadataField(
                     value=f"market_{i:03d}",
                     visibility_type="public",
                 ),
-                price_level=VisibilityField(
+                price_level=MetadataField(
                     value=1.0,
                     visibility_type="public",
                 ),
-                available_supply=VisibilityField(
+                available_supply=MetadataField(
                     value=1000.0,
                     visibility_type="cascading",
                 ),
@@ -79,15 +82,15 @@ class BuildEnvironment:
             institution = InstitutionState(
                 institution_id=i,
                 market_id=market.market_id,
-                institution_name=VisibilityField(
+                institution_name=MetadataField(
                     value=f"institution_{i:03d}",
                     visibility_type="public",
                 ),
-                available_liquidity=VisibilityField(
+                available_liquidity=MetadataField(
                     value=10_000.0,
                     visibility_type="restricted",
                 ),
-                capital=VisibilityField(
+                capital=MetadataField(
                     value=5_000.0,
                     visibility_type="restricted",
                 ),
@@ -98,6 +101,49 @@ class BuildEnvironment:
             )
 
         return institutions
+
+    def _build_companies(
+        self,
+        markets: list[MarketState],
+    ) -> list[CompanyState]:
+
+        companies = []
+
+        for i in range(
+            1,
+            self.num_companies + 1,
+        ):
+
+            market = self.rng.choice(
+                markets,
+            )
+
+            company = CompanyState(
+                company_id=i,
+                market_id=market.market_id,
+                company_name=MetadataField(
+                    value=f"company_{i:03d}",
+                    visibility_type="public",
+                ),
+                capital=MetadataField(
+                    value=10_000.0,
+                    visibility_type="restricted",
+                ),
+                inventory=MetadataField(
+                    value=500.0,
+                    visibility_type="cascading",
+                ),
+                production_capacity=MetadataField(
+                    value=100.0,
+                    visibility_type="cascading",
+                ),
+            )
+
+            companies.append(
+                company,
+            )
+
+        return companies
 
     def _build_accounts(
         self,
@@ -123,19 +169,19 @@ class BuildEnvironment:
                     account_id=account_number,
                     agent_id=agent.config.agent_id,
                     institution_id=institution.institution_id,
-                    account_name=VisibilityField(
+                    account_name=MetadataField(
                         value=f"Account {account_number}",
                         visibility_type="private",
                     ),
-                    balance=VisibilityField(
+                    balance=MetadataField(
                         value=1000.0,
                         visibility_type="private",
                     ),
-                    outstanding_debt=VisibilityField(
+                    outstanding_debt=MetadataField(
                         value=0.0,
                         visibility_type="private",
                     ),
-                    credit_limit=VisibilityField(
+                    credit_limit=MetadataField(
                         value=500.0,
                         visibility_type="private",
                     ),
@@ -176,12 +222,21 @@ class BuildEnvironment:
             if institution.market_id not in market_ids:
                 raise ValueError(f"Unknown market: {institution.market_id}")
 
+        for company in environment.companies:
+
+            if company.market_id not in market_ids:
+                raise ValueError(f"Unknown market: {company.market_id}")
+
     def run(
         self,
         agents: list[Agent],
     ) -> Environment:
 
         markets = self._build_markets()
+
+        companies = self._build_companies(
+            markets=markets,
+        )
 
         institutions = self._build_institutions(
             markets=markets,
@@ -195,6 +250,7 @@ class BuildEnvironment:
         environment = Environment(
             state=EnvironmentState(),
             markets=markets,
+            companies=companies,
             institutions=institutions,
             accounts=accounts,
         )

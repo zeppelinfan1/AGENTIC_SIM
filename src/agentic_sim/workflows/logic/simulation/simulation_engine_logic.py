@@ -16,6 +16,7 @@ class SimulationEngine(Task):
         "dev_catalog",
         "num_agents",
         "num_markets",
+        "num_companies",
         "num_institutions",
         "accounts_per_agent",
         "random_seed",
@@ -38,6 +39,10 @@ class SimulationEngine(Task):
 
         self.num_markets = int(
             self.init_config["num_markets"],
+        )
+
+        self.num_companies = int(
+            self.init_config["num_companies"],
         )
 
         self.num_institutions = int(
@@ -63,6 +68,7 @@ class SimulationEngine(Task):
                 "dev_catalog=%s | "
                 "num_agents=%s | "
                 "num_markets=%s | "
+                "num_companies=%s | "
                 "num_institutions=%s | "
                 "accounts_per_agent=%s | "
                 "random_seed=%s | "
@@ -72,6 +78,7 @@ class SimulationEngine(Task):
             self.dev_catalog,
             self.num_agents,
             self.num_markets,
+            self.num_companies,
             self.num_institutions,
             self.accounts_per_agent,
             self.random_seed,
@@ -98,6 +105,7 @@ class SimulationEngine(Task):
         self.build_simulation = BuildSimulation(
             num_agents=self.num_agents,
             num_markets=self.num_markets,
+            num_companies=self.num_companies,
             num_institutions=self.num_institutions,
             accounts_per_agent=self.accounts_per_agent,
             random_seed=self.random_seed,
