@@ -34,11 +34,10 @@ class BuildAgents:
         }
 
     def _build_agent(self, agent_number: int) -> Agent:
-        agent_id = f"agent_{agent_number:03d}"
         agent_name = f"Agent {agent_number}"
 
         agent_config = AgentConfig(
-            agent_id=agent_id,
+            agent_id=agent_number,
             agent_name=agent_name,
             agent_type=self.agent_type,
             brain_config=self.brain_config,
