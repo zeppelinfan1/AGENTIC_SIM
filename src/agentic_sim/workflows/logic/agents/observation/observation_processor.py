@@ -12,10 +12,11 @@ class ProcessedObservation:
     """
     Numerical representation of an agent observation.
 
-    `values` is suitable for direct input into the StateEncoder.
+    `values` contains the numerical information available
+    for downstream model processing.
 
     `feature_names` preserves the semantic meaning and ordering
-    of the numerical values for traceability and debugging.
+    of those values for traceability and debugging.
     """
 
     values: torch.Tensor
@@ -29,8 +30,7 @@ class ObservationProcessor:
     V1 behavior:
         - reads all visible numerical economic fields;
         - preserves deterministic ordering;
-        - ignores structural IDs and non-numerical descriptive fields;
-        - validates the resulting input dimension.
+        - ignores structural IDs and non-numerical descriptive fields.
 
     Future versions may add:
         - normalization;
@@ -47,13 +47,6 @@ class ObservationProcessor:
         "institutions",
         "markets",
     )
-
-    def __init__(
-        self,
-        *,
-        expected_dim: int,
-    ) -> None:
-        self.expected_dim = expected_dim
 
     def _extract_numeric_fields(
         self,
@@ -119,17 +112,6 @@ class ObservationProcessor:
 
             feature_names.extend(
                 section_feature_names,
-            )
-
-        if len(values) != self.expected_dim:
-            raise ValueError(
-                (
-                    "Processed observation dimension does not match "
-                    "StateEncoder input dimension | "
-                    f"expected={self.expected_dim} | "
-                    f"actual={len(values)} | "
-                    f"features={feature_names}"
-                )
             )
 
         tensor = torch.tensor(
