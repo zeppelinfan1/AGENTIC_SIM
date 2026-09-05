@@ -10,10 +10,10 @@ from agentic_sim.workflows.logic.environment.build_environment_logic import (
 from agentic_sim.workflows.logic.environment.environment import (
     Environment,
 )
-from agentic_sim.workflows.logic.environment.extractor import (
+from agentic_sim.workflows.logic.environment.perception.extractor import (
     VisibleFieldExtractor,
 )
-from agentic_sim.workflows.logic.environment.perception import (
+from agentic_sim.workflows.logic.environment.perception.perception import (
     Perception,
 )
 

@@ -17,20 +17,20 @@ if TYPE_CHECKING:
     )
 
 
-VisibleTarget: TypeAlias = AccountState | InstitutionState | MarketState | CompanyState
+VisibleTarget: TypeAlias = AccountState | CompanyState | InstitutionState | MarketState
 
 
 class VisibleFieldExtractor:
 
-    def get_visible_fields(
+    def get_visible_metadata_fields(
         self,
         *,
         actor_id: int,
         target_object: VisibleTarget,
         environment: "Environment",
-    ) -> dict[str, object]:
+    ) -> dict[str, MetadataField]:
 
-        visible_values: dict[str, object] = {}
+        visible_fields: dict[str, MetadataField] = {}
 
         for field_info in fields(
             target_object,
@@ -52,6 +52,25 @@ class VisibleFieldExtractor:
                 target_object=target_object,
                 field=value,
             ):
-                visible_values[field_info.name] = value.value
+                visible_fields[field_info.name] = value
 
-        return visible_values
+        return visible_fields
+
+    def get_visible_fields(
+        self,
+        *,
+        actor_id: int,
+        target_object: VisibleTarget,
+        environment: "Environment",
+    ) -> dict[str, object]:
+
+        visible_metadata_fields = self.get_visible_metadata_fields(
+            actor_id=actor_id,
+            target_object=target_object,
+            environment=environment,
+        )
+
+        return {
+            field_name: metadata_field.value
+            for field_name, metadata_field in visible_metadata_fields.items()
+        }

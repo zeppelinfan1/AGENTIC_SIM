@@ -3,6 +3,12 @@ from agentic_sim.workflows.task import Task
 from agentic_sim.workflows.logic.agents.observation.observation_processor import (
     ObservationProcessor,
 )
+from agentic_sim.workflows.logic.actions.targets.target_candidate_provider import (
+    TargetCandidateProvider,
+)
+from agentic_sim.workflows.logic.environment.perception.extractor import (
+    VisibleFieldExtractor,
+)
 from agentic_sim.workflows.logic.simulation.build_simulation_logic import (
     BuildSimulation,
     SimulationContext,
@@ -116,6 +122,10 @@ class SimulationEngine(Task):
         # Runtime processing components
         self.observation_processor = ObservationProcessor()
 
+        self.target_candidate_provider = TargetCandidateProvider(
+            visible_field_extractor=VisibleFieldExtractor(),
+        )
+
     def _run_step(
         self,
         *,
@@ -136,6 +146,16 @@ class SimulationEngine(Task):
             # 1. Perceive current environment state
             observation = simulation.perception.perceive(
                 agent=agent,
+                environment=simulation.environment,
+            )
+
+            observation = simulation.perception.perceive(
+                agent=agent,
+                environment=simulation.environment,
+            )
+
+            target_candidates = self.target_candidate_provider.get_candidates(
+                observation=observation,
                 environment=simulation.environment,
             )
 
