@@ -1,10 +1,22 @@
 from agentic_sim.workflows.task import Task
 
-from agentic_sim.workflows.logic.agents.observation.observation_processor import (
-    ObservationProcessor,
+from agentic_sim.workflows.logic.actions.candidates.action_candidate_provider import (
+    ActionCandidateProvider,
+)
+from agentic_sim.workflows.logic.actions.magnitude.magnitude_candidate_generator import (
+    MagnitudeCandidateGenerator,
+)
+from agentic_sim.workflows.logic.actions.magnitude.magnitude_constraint_resolver import (
+    MagnitudeConstraintResolver,
 )
 from agentic_sim.workflows.logic.actions.targets.target_candidate_provider import (
     TargetCandidateProvider,
+)
+from agentic_sim.workflows.logic.actions.targets.target_reference_resolver import (
+    TargetReferenceResolver,
+)
+from agentic_sim.workflows.logic.agents.observation.observation_processor import (
+    ObservationProcessor,
 )
 from agentic_sim.workflows.logic.environment.perception.extractor import (
     VisibleFieldExtractor,
@@ -29,8 +41,13 @@ class SimulationEngine(Task):
         "num_steps",
     )
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            **kwargs,
+        )
 
         # Runtime parameters
         self.is_dev_run = self.get_bool_parameter(
@@ -96,10 +113,10 @@ class SimulationEngine(Task):
             SELECT
                 current_catalog() AS current_catalog,
                 current_schema() AS current_schema
-        """).first()
+            """).first()
 
         if current_environment is None:
-            raise RuntimeError("Spark environment query returned no rows.")
+            raise RuntimeError(("Spark environment query " "returned no rows."))
 
         self.logger.info(
             ("Spark connection successful | " "catalog=%s | " "schema=%s"),
@@ -107,7 +124,7 @@ class SimulationEngine(Task):
             current_environment["current_schema"],
         )
 
-        # Build components
+        # Build simulation runtime
         self.build_simulation = BuildSimulation(
             num_agents=self.num_agents,
             num_markets=self.num_markets,
@@ -119,11 +136,31 @@ class SimulationEngine(Task):
             logger=self.logger,
         )
 
-        # Runtime processing components
+        # Observation processing
         self.observation_processor = ObservationProcessor()
 
+        # Shared target field visibility logic
+        self.visible_field_extractor = VisibleFieldExtractor()
+
+        # Target discovery
         self.target_candidate_provider = TargetCandidateProvider(
-            visible_field_extractor=VisibleFieldExtractor(),
+            visible_field_extractor=(self.visible_field_extractor),
+        )
+
+        # Stable action-target resolution
+        self.target_reference_resolver = TargetReferenceResolver()
+
+        # Magnitude physics
+        self.magnitude_constraint_resolver = MagnitudeConstraintResolver(
+            target_reference_resolver=(self.target_reference_resolver),
+        )
+
+        self.magnitude_candidate_generator = MagnitudeCandidateGenerator()
+
+        # Concrete action opportunity generation
+        self.action_candidate_provider = ActionCandidateProvider(
+            magnitude_constraint_resolver=(self.magnitude_constraint_resolver),
+            magnitude_candidate_generator=(self.magnitude_candidate_generator),
         )
 
     def _run_step(
@@ -139,85 +176,130 @@ class SimulationEngine(Task):
             step,
         )
 
-        agent_actions = []
+        agent_opportunity_sets = []
 
         for agent in simulation.agents:
+
+            actor_id = agent.config.agent_id
 
             # 1. Perceive current environment state
             observation = simulation.perception.perceive(
                 agent=agent,
-                environment=simulation.environment,
+                environment=(simulation.environment),
             )
 
-            observation = simulation.perception.perceive(
-                agent=agent,
-                environment=simulation.environment,
-            )
-
+            # 2. Discover visible environment fields
+            #    eligible for at least one primitive
+            #    transformation.
             target_candidates = self.target_candidate_provider.get_candidates(
                 observation=observation,
-                environment=simulation.environment,
+                environment=(simulation.environment),
             )
 
-            # 2. Process semantic perception into numerical input
+            # 3. Expand target fields into concrete
+            #    target + direction + magnitude candidates.
+            action_candidates = self.action_candidate_provider.get_candidates(
+                actor_id=actor_id,
+                target_candidates=(target_candidates),
+                environment=(simulation.environment),
+            )
+
+            # 4. Process semantic perception into
+            #    numerical model input.
             processed_observation = self.observation_processor.process(
                 observation=observation,
             )
 
-            # 3. Encode current perceived state
+            # 5. Encode the current perceived state.
+            #
+            # Candidate evaluation is intentionally not
+            # connected yet. The next architecture stage
+            # will combine this embedding with candidate
+            # representations.
             state_embedding = agent.brain.encode(
                 processed_observation.values,
             )
 
-            # 4. Produce primitive action coordinates
-            action_coordinates = agent.brain.actor(
-                state_embedding,
-            )
-
-            agent_actions.append(
+            agent_opportunity_sets.append(
                 (
                     agent,
-                    action_coordinates,
+                    state_embedding,
+                    tuple(
+                        action_candidates,
+                    ),
                 )
             )
 
             self.logger.info(
                 (
-                    "Agent decision generated | "
+                    "Agent opportunity set generated | "
                     "step=%s | "
                     "agent_id=%s | "
                     "features=%s | "
-                    "action_coordinates=%s"
+                    "target_candidates=%s | "
+                    "action_candidates=%s"
                 ),
                 step,
-                agent.config.agent_id,
+                actor_id,
                 processed_observation.feature_names,
-                action_coordinates.detach().tolist(),
+                len(
+                    target_candidates,
+                ),
+                len(
+                    action_candidates,
+                ),
             )
 
-        # Future:
+            self.logger.debug(
+                (
+                    "Agent action candidates | "
+                    "step=%s | "
+                    "agent_id=%s | "
+                    "candidates=%s"
+                ),
+                step,
+                actor_id,
+                [
+                    {
+                        "object_type": (candidate.target.object_type),
+                        "object_id": (candidate.target.object_id),
+                        "field_name": (candidate.target.field_name),
+                        "direction": (candidate.direction.value),
+                        "magnitude": (candidate.magnitude),
+                    }
+                    for candidate in action_candidates
+                ],
+            )
+
+        # Next development stage:
         #
-        # 5. Interpret primitive action coordinates
-        # 6. Resolve all requested actions against the environment
-        # 7. Update environment state
-        # 8. Calculate outcomes / rewards
-        # 9. Store experience
-        # 10. Perform learning
+        # 6. Encode every ActionCandidate
+        # 7. Score state + candidate combinations
+        # 8. Add explicit no-op option
+        # 9. Explore/select one candidate per agent
+        # 10. Collect all requested actions
+        # 11. Jointly resolve requests against environment
+        # 12. Measure objective consequences
+        # 13. Form subjective rewards
+        # 14. Store experience
+        # 15. Perform reinforcement-learning updates
 
         self.logger.info(
-            ("Simulation step completed | " "step=%s | " "agent_actions=%s"),
+            ("Simulation step completed | " "step=%s | " "agent_opportunity_sets=%s"),
             step,
-            len(agent_actions),
+            len(
+                agent_opportunity_sets,
+            ),
         )
 
-    def run(self) -> None:
+    def run(
+        self,
+    ) -> None:
 
         self.logger.info("Starting simulation engine...")
 
-        # Build the initial simulation world
         simulation = self.build_simulation.run()
 
-        # Execute simulation through time
         for _ in range(
             self.num_steps,
         ):

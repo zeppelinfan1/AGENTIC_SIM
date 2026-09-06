@@ -2,15 +2,18 @@ import random
 
 from agentic_sim.workflows.logic.agents.agent import Agent
 from agentic_sim.workflows.logic.environment.environment import Environment
+from agentic_sim.workflows.logic.environment.metadata.eligibility import (
+    IntentEligibilityMetadata,
+)
+from agentic_sim.workflows.logic.environment.metadata.fields import (
+    MetadataField,
+)
 from agentic_sim.workflows.logic.environment.state import (
     AccountState,
     CompanyState,
     EnvironmentState,
     InstitutionState,
     MarketState,
-)
-from agentic_sim.workflows.logic.environment.metadata.fields import (
-    MetadataField,
 )
 
 
@@ -132,10 +135,18 @@ class BuildEnvironment:
                 inventory=MetadataField(
                     value=500.0,
                     visibility_type="cascading",
+                    eligibility=IntentEligibilityMetadata(
+                        produce=True,
+                        consume=True,
+                    ),
                 ),
                 production_capacity=MetadataField(
                     value=100.0,
                     visibility_type="cascading",
+                    eligibility=IntentEligibilityMetadata(
+                        create=True,
+                        destroy=True,
+                    ),
                 ),
             )
 
@@ -176,6 +187,9 @@ class BuildEnvironment:
                     balance=MetadataField(
                         value=1000.0,
                         visibility_type="private",
+                        eligibility=IntentEligibilityMetadata(
+                            consume=True,
+                        ),
                     ),
                     outstanding_debt=MetadataField(
                         value=0.0,
@@ -215,17 +229,17 @@ class BuildEnvironment:
                 raise ValueError(f"Unknown agent: {account.agent_id}")
 
             if account.institution_id not in institution_ids:
-                raise ValueError(f"Unknown institution: {account.institution_id}")
+                raise ValueError(("Unknown institution: " f"{account.institution_id}"))
 
         for institution in environment.institutions:
 
             if institution.market_id not in market_ids:
-                raise ValueError(f"Unknown market: {institution.market_id}")
+                raise ValueError(("Unknown market: " f"{institution.market_id}"))
 
         for company in environment.companies:
 
             if company.market_id not in market_ids:
-                raise ValueError(f"Unknown market: {company.market_id}")
+                raise ValueError(("Unknown market: " f"{company.market_id}"))
 
     def run(
         self,
