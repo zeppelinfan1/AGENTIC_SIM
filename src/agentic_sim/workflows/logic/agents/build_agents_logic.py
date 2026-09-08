@@ -22,14 +22,10 @@ class BuildAgents:
         self.spark = spark
         self.logger = logger
 
-        # Shared architecture configuration/template.
-        #
-        # Each individual agent still receives its own
-        # independently initialized AgentBrain and therefore
-        # its own neural-network weights.
         self.brain_config = AgentBrainConfig(
             embedding_dim=3,
             action_embedding_dim=16,
+            value_hidden_dim=128,
             action_dim=2,
         )
 
@@ -66,6 +62,7 @@ class BuildAgents:
             encoder_hidden_dim=(self.brain_config.encoder_hidden_dim),
             action_embedding_dim=(self.brain_config.action_embedding_dim),
             action_encoder_hidden_dim=(self.brain_config.action_encoder_hidden_dim),
+            value_hidden_dim=(self.brain_config.value_hidden_dim),
             actor_hidden_dim=(self.brain_config.actor_hidden_dim),
             action_dim=(self.brain_config.action_dim),
             dropout=(self.brain_config.dropout),

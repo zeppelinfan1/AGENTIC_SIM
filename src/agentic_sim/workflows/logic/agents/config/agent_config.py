@@ -11,9 +11,12 @@ class AgentBrainConfig:
     embedding_dim: int = 3
     encoder_hidden_dim: int = 512
 
-    # Dynamic action-candidate representation
+    # Action-candidate representation
     action_embedding_dim: int = 16
     action_encoder_hidden_dim: int = 128
+
+    # State-action value prediction
+    value_hidden_dim: int = 128
 
     # Transitional legacy actor
     actor_hidden_dim: int = 128

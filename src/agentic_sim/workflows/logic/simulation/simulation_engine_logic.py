@@ -6,6 +6,9 @@ from agentic_sim.workflows.logic.actions.action_candidate_provider import (
 from agentic_sim.workflows.logic.actions.encoding.action_candidate_processor import (
     ActionCandidateProcessor,
 )
+from agentic_sim.workflows.logic.actions.action_candidate_value import (
+    ValuedActionCandidates,
+)
 from agentic_sim.workflows.logic.actions.magnitude.magnitude_candidate_generator import (
     MagnitudeCandidateGenerator,
 )
@@ -209,51 +212,56 @@ class SimulationEngine(Task):
                 observation=observation,
             )
 
-            # 7. Encode EVERY candidate with this agent's
-            #    ActionEncoder.
-            #
-            # Shape:
-            #
-            #     [num_candidates, feature_dim]
-            #                  ↓
-            #     [num_candidates, action_embedding_dim]
-            #
-            action_embeddings = agent.brain.encode_actions(
-                processed_action_candidates.values
+            # 7. Encode the current state, encode every candidate,
+            #    and predict one long-term value for every candidate.
+            (
+                state_embedding,
+                action_embeddings,
+                predicted_values,
+            ) = agent.brain.evaluate_opportunities(
+                observation_features=(processed_observation.values),
+                action_features=(processed_action_candidates.values),
+            )
+
+            # 8. Preserve the exact positional mapping between
+            #    semantic candidates and their predicted values.
+            valued_action_candidates = ValuedActionCandidates(
+                candidates=(processed_action_candidates.candidates),
+                predicted_values=predicted_values,
             )
 
             agent_opportunity_sets.append(
                 (
                     agent,
                     state_embedding,
-                    processed_action_candidates,
                     action_embeddings,
+                    valued_action_candidates,
                 )
             )
 
             self.logger.info(
                 (
-                    "Agent opportunity set encoded | "
+                    "Agent opportunity values predicted | "
                     "step=%s | "
                     "agent_id=%s | "
                     "state_features=%s | "
                     "target_candidates=%s | "
                     "action_candidates=%s | "
-                    "action_feature_dim=%s | "
-                    "action_embedding_shape=%s"
+                    "action_embedding_shape=%s | "
+                    "predicted_values_shape=%s"
                 ),
                 step,
                 actor_id,
                 len(processed_observation.feature_names),
                 len(target_candidates),
                 len(action_candidates),
-                (processed_action_candidates.values.shape[-1]),
                 tuple(action_embeddings.shape),
+                tuple(predicted_values.shape),
             )
 
             self.logger.debug(
                 (
-                    "Encoded action candidates | "
+                    "Valued action candidates | "
                     "step=%s | "
                     "agent_id=%s | "
                     "candidates=%s"
@@ -269,42 +277,18 @@ class SimulationEngine(Task):
                         },
                         "direction": (candidate.direction.value),
                         "magnitude": (candidate.magnitude),
-                        "features": (
-                            processed_action_candidates.values[candidate_index]
-                            .detach()
-                            .tolist()
-                        ),
-                        "embedding": (
-                            action_embeddings[candidate_index].detach().tolist()
+                        "predicted_long_term_value": (
+                            valued_action_candidates.predicted_values[
+                                candidate_index
+                            ].item()
                         ),
                     }
                     for (
                         candidate_index,
                         candidate,
-                    ) in enumerate(processed_action_candidates.candidates)
+                    ) in enumerate(valued_action_candidates.candidates)
                 ],
             )
-
-        # Next architecture stage:
-        #
-        # state_embedding
-        # +
-        # each action_embedding
-        #     ↓
-        # ValueNetwork
-        #     ↓
-        # predicted long-term value per candidate
-        #
-        # Then:
-        #
-        # - explicit no-op candidate
-        # - exploration / selection
-        # - collect all selected requests
-        # - jointly resolve world transition
-        # - objective consequences
-        # - subjective reward
-        # - experience storage
-        # - RL update
 
         self.logger.info(
             ("Simulation step completed | " "step=%s | " "agent_opportunity_sets=%s"),

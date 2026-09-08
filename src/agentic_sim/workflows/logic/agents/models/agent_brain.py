@@ -45,16 +45,13 @@ class StateEncoder(nn.Module):
 class ActionEncoder(nn.Module):
     """
     Encodes structured ActionCandidate features into a
-    learned latent action/opportunity representation.
+    learned latent opportunity representation.
 
-    The same ActionEncoder is applied to every currently
-    available candidate for one agent.
-
-    Input shape:
+    Input:
 
         [num_candidates, candidate_feature_dim]
 
-    Output shape:
+    Output:
 
         [num_candidates, action_embedding_dim]
     """
@@ -93,14 +90,141 @@ class ActionEncoder(nn.Module):
         return self.network(action_features)
 
 
+class ActionValueNetwork(nn.Module):
+    """
+    Predicts the expected long-term value of every currently
+    available action candidate.
+
+    The same current state embedding is paired with each action
+    embedding.
+
+    Conceptually:
+
+        Q(s, a)
+
+    Input:
+
+        state_embedding:
+            [state_embedding_dim]
+
+        action_embeddings:
+            [num_candidates, action_embedding_dim]
+
+    Output:
+
+        [num_candidates]
+
+    The output layer is intentionally unbounded.
+    """
+
+    def __init__(
+        self,
+        *,
+        state_embedding_dim: int,
+        action_embedding_dim: int,
+        hidden_dim: int = 128,
+        dropout: float = 0.1,
+    ) -> None:
+        super().__init__()
+
+        self.state_embedding_dim = state_embedding_dim
+
+        self.action_embedding_dim = action_embedding_dim
+
+        joint_dim = state_embedding_dim + action_embedding_dim
+
+        self.network = nn.Sequential(
+            nn.Linear(
+                joint_dim,
+                hidden_dim,
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                hidden_dim,
+                hidden_dim,
+            ),
+            nn.ReLU(),
+            nn.Dropout(
+                dropout,
+            ),
+            nn.Linear(
+                hidden_dim,
+                1,
+            ),
+        )
+
+    def forward(
+        self,
+        state_embedding: torch.Tensor,
+        action_embeddings: torch.Tensor,
+    ) -> torch.Tensor:
+
+        if state_embedding.ndim != 1:
+            raise ValueError(
+                (
+                    "State embedding must be one-dimensional "
+                    "for single-agent opportunity evaluation | "
+                    f"shape={tuple(state_embedding.shape)}"
+                )
+            )
+
+        if action_embeddings.ndim != 2:
+            raise ValueError(
+                (
+                    "Action embeddings must be two-dimensional | "
+                    f"shape={tuple(action_embeddings.shape)}"
+                )
+            )
+
+        if state_embedding.shape[0] != self.state_embedding_dim:
+            raise ValueError(
+                (
+                    "Unexpected state embedding dimension | "
+                    f"expected={self.state_embedding_dim} | "
+                    f"actual={state_embedding.shape[0]}"
+                )
+            )
+
+        if action_embeddings.shape[1] != self.action_embedding_dim:
+            raise ValueError(
+                (
+                    "Unexpected action embedding dimension | "
+                    f"expected={self.action_embedding_dim} | "
+                    f"actual={action_embeddings.shape[1]}"
+                )
+            )
+
+        num_candidates = action_embeddings.shape[0]
+
+        if num_candidates == 0:
+            return action_embeddings.new_empty((0,))
+
+        state_batch = state_embedding.unsqueeze(0).expand(
+            num_candidates,
+            -1,
+        )
+
+        joint_representation = torch.cat(
+            (
+                state_batch,
+                action_embeddings,
+            ),
+            dim=-1,
+        )
+
+        values = self.network(joint_representation)
+
+        return values.squeeze(-1)
+
+
 class ContrastiveLoss(nn.Module):
     """
     Siamese contrastive loss.
 
-    label = 1
+    label = 1:
         embeddings should be close.
 
-    label = 0
+    label = 0:
         embeddings should be separated by at least margin.
     """
 
@@ -138,11 +262,10 @@ class AgentActor(nn.Module):
     """
     Transitional legacy actor.
 
-    Previously converted the state embedding directly into
+    This previously converted state embeddings directly into
     coordinates in the two-dimensional primitive action plane.
 
-    SimulationEngine no longer uses this component for current
-    candidate-based decision making.
+    It is no longer used by the candidate-based decision path.
     """
 
     def __init__(
@@ -175,31 +298,30 @@ class AgentActor(nn.Module):
 
 class AgentBrain(nn.Module):
     """
-    Neural learning components belonging to one agent.
+    Neural components belonging to one economic agent.
 
-    Current active representation paths:
+    Active candidate-value architecture:
 
-        observation
-            ↓
+        observation features
+                ↓
         StateEncoder
-            ↓
+                ↓
         state_embedding
-
-
-        ActionCandidate features
-            ↓
-        ActionEncoder
-            ↓
-        action_embedding
-
-    The next architecture stage will combine:
-
-        state_embedding
-        + action_embedding
-            ↓
-        ValueNetwork
-            ↓
-        predicted long-term candidate value
+                │
+                │
+                ├────────────────────────┐
+                │                        │
+        candidate features               │
+                ↓                        │
+        ActionEncoder                    │
+                ↓                        │
+        action_embeddings                │
+                │                        │
+                └──────────────┬─────────┘
+                               ↓
+                     ActionValueNetwork
+                               ↓
+                 predicted candidate values
     """
 
     def __init__(
@@ -208,6 +330,7 @@ class AgentBrain(nn.Module):
         encoder_hidden_dim: int = 512,
         action_embedding_dim: int = 16,
         action_encoder_hidden_dim: int = 128,
+        value_hidden_dim: int = 128,
         actor_hidden_dim: int = 128,
         action_dim: int = 2,
         dropout: float = 0.1,
@@ -221,12 +344,19 @@ class AgentBrain(nn.Module):
         )
 
         self.action_encoder = ActionEncoder(
-            embedding_dim=action_embedding_dim,
-            hidden_dim=action_encoder_hidden_dim,
+            embedding_dim=(action_embedding_dim),
+            hidden_dim=(action_encoder_hidden_dim),
             dropout=dropout,
         )
 
-        # Transitional legacy component.
+        self.value_network = ActionValueNetwork(
+            state_embedding_dim=(embedding_dim),
+            action_embedding_dim=(action_embedding_dim),
+            hidden_dim=(value_hidden_dim),
+            dropout=dropout,
+        )
+
+        # Transitional legacy network.
         self.actor = AgentActor(
             embedding_dim=embedding_dim,
             hidden_dim=actor_hidden_dim,
@@ -237,9 +367,6 @@ class AgentBrain(nn.Module):
         self,
         observation: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Encode one perceived decision state.
-        """
 
         return self.encoder(observation)
 
@@ -247,11 +374,76 @@ class AgentBrain(nn.Module):
         self,
         action_features: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Encode every candidate in a candidate-feature batch.
-        """
 
         return self.action_encoder(action_features)
+
+    def score_actions(
+        self,
+        *,
+        state_embedding: torch.Tensor,
+        action_embeddings: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Produce one predicted long-term value per candidate.
+        """
+
+        return self.value_network(
+            state_embedding=state_embedding,
+            action_embeddings=action_embeddings,
+        )
+
+    def evaluate_opportunities(
+        self,
+        *,
+        observation_features: torch.Tensor,
+        action_features: torch.Tensor,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
+        """
+        Deterministic decision-time forward pass.
+
+        Dropout is disabled during opportunity evaluation.
+
+        Exploration should later be implemented explicitly
+        during candidate selection rather than arising from
+        stochastic neural-network layers.
+
+        Returns:
+
+            state_embedding
+            action_embeddings
+            predicted_values
+        """
+
+        was_training = self.training
+
+        self.eval()
+
+        try:
+
+            with torch.no_grad():
+
+                state_embedding = self.encode(observation_features)
+
+                action_embeddings = self.encode_actions(action_features)
+
+                predicted_values = self.score_actions(
+                    state_embedding=(state_embedding),
+                    action_embeddings=(action_embeddings),
+                )
+
+        finally:
+
+            self.train(was_training)
+
+        return (
+            state_embedding,
+            action_embeddings,
+            predicted_values,
+        )
 
     def encode_pair(
         self,
@@ -261,12 +453,6 @@ class AgentBrain(nn.Module):
         torch.Tensor,
         torch.Tensor,
     ]:
-        """
-        Siamese state-encoding operation.
-
-        Both observations pass through the same StateEncoder
-        and therefore share weights.
-        """
 
         embedding_a = self.encoder(observation_a)
 
@@ -282,10 +468,10 @@ class AgentBrain(nn.Module):
         observation: torch.Tensor,
     ) -> torch.Tensor:
         """
-        Legacy forward path.
+        Legacy actor-based forward path.
 
-        Retained temporarily until the candidate ValueNetwork
-        fully replaces the old direct actor architecture.
+        Retained temporarily until the candidate architecture
+        completely replaces the old interface.
         """
 
         embedding = self.encoder(observation)
