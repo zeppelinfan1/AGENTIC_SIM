@@ -4,13 +4,21 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class AgentBrainConfig:
     """
-    Configuration for an agent's observation neural network.
+    Configuration for an agent's neural learning components.
     """
 
+    # State representation
     embedding_dim: int = 3
     encoder_hidden_dim: int = 512
+
+    # Dynamic action-candidate representation
+    action_embedding_dim: int = 16
+    action_encoder_hidden_dim: int = 128
+
+    # Transitional legacy actor
     actor_hidden_dim: int = 128
     action_dim: int = 2
+
     dropout: float = 0.1
 
     contrastive_margin: float = 1.0

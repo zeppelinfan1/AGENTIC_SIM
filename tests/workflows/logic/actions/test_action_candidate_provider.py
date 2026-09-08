@@ -1,4 +1,4 @@
-from agentic_sim.workflows.logic.actions.candidates.action_candidate_provider import (
+from agentic_sim.workflows.logic.actions.action_candidate_provider import (
     ActionCandidateProvider,
 )
 from agentic_sim.workflows.logic.actions.magnitude.magnitude_candidate_generator import (

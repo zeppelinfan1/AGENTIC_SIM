@@ -11,14 +11,25 @@ from agentic_sim.workflows.logic.agents.models.agent_brain import (
 
 class BuildAgents:
 
-    def __init__(self, num_agents: int, spark, logger) -> None:
+    def __init__(
+        self,
+        num_agents: int,
+        spark,
+        logger,
+    ) -> None:
+
         self.num_agents = num_agents
         self.spark = spark
         self.logger = logger
 
-        # Shared configuration/template
+        # Shared architecture configuration/template.
+        #
+        # Each individual agent still receives its own
+        # independently initialized AgentBrain and therefore
+        # its own neural-network weights.
         self.brain_config = AgentBrainConfig(
             embedding_dim=3,
+            action_embedding_dim=16,
             action_dim=2,
         )
 
@@ -30,7 +41,11 @@ class BuildAgents:
             "time": 0.0,
         }
 
-    def _build_agent(self, agent_number: int) -> Agent:
+    def _build_agent(
+        self,
+        agent_number: int,
+    ) -> Agent:
+
         agent_name = f"Agent {agent_number}"
 
         agent_config = AgentConfig(
@@ -43,15 +58,17 @@ class BuildAgents:
 
         agent_state = AgentState(
             agent_name=agent_name,
-            agent_state=self.initial_agent_state.copy(),
+            agent_state=(self.initial_agent_state.copy()),
         )
 
         brain = AgentBrain(
-            embedding_dim=self.brain_config.embedding_dim,
-            encoder_hidden_dim=self.brain_config.encoder_hidden_dim,
-            actor_hidden_dim=self.brain_config.actor_hidden_dim,
-            action_dim=self.brain_config.action_dim,
-            dropout=self.brain_config.dropout,
+            embedding_dim=(self.brain_config.embedding_dim),
+            encoder_hidden_dim=(self.brain_config.encoder_hidden_dim),
+            action_embedding_dim=(self.brain_config.action_embedding_dim),
+            action_encoder_hidden_dim=(self.brain_config.action_encoder_hidden_dim),
+            actor_hidden_dim=(self.brain_config.actor_hidden_dim),
+            action_dim=(self.brain_config.action_dim),
+            dropout=(self.brain_config.dropout),
         )
 
         return Agent(
@@ -60,19 +77,25 @@ class BuildAgents:
             brain=brain,
         )
 
-    def run(self) -> list[Agent]:
+    def run(
+        self,
+    ) -> list[Agent]:
+
         self.logger.info(
-            "Starting agent building | num_agents=%s",
+            ("Starting agent building | " "num_agents=%s"),
             self.num_agents,
         )
 
         agents = [
             self._build_agent(agent_number)
-            for agent_number in range(1, self.num_agents + 1)
+            for agent_number in range(
+                1,
+                self.num_agents + 1,
+            )
         ]
 
         self.logger.info(
-            "Agent building completed | agents_built=%s",
+            ("Agent building completed | " "agents_built=%s"),
             len(agents),
         )
 

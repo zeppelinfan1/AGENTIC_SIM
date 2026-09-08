@@ -1,7 +1,10 @@
 from agentic_sim.workflows.task import Task
 
-from agentic_sim.workflows.logic.actions.candidates.action_candidate_provider import (
+from agentic_sim.workflows.logic.actions.action_candidate_provider import (
     ActionCandidateProvider,
+)
+from agentic_sim.workflows.logic.actions.encoding.action_candidate_processor import (
+    ActionCandidateProcessor,
 )
 from agentic_sim.workflows.logic.actions.magnitude.magnitude_candidate_generator import (
     MagnitudeCandidateGenerator,
@@ -45,44 +48,27 @@ class SimulationEngine(Task):
         self,
         **kwargs,
     ) -> None:
-        super().__init__(
-            **kwargs,
-        )
+
+        super().__init__(**kwargs)
 
         # Runtime parameters
-        self.is_dev_run = self.get_bool_parameter(
-            "is_dev_run",
-        )
+        self.is_dev_run = self.get_bool_parameter("is_dev_run")
 
         self.dev_catalog = self.init_config["dev_catalog"]
 
-        self.num_agents = int(
-            self.init_config["num_agents"],
-        )
+        self.num_agents = int(self.init_config["num_agents"])
 
-        self.num_markets = int(
-            self.init_config["num_markets"],
-        )
+        self.num_markets = int(self.init_config["num_markets"])
 
-        self.num_companies = int(
-            self.init_config["num_companies"],
-        )
+        self.num_companies = int(self.init_config["num_companies"])
 
-        self.num_institutions = int(
-            self.init_config["num_institutions"],
-        )
+        self.num_institutions = int(self.init_config["num_institutions"])
 
-        self.accounts_per_agent = int(
-            self.init_config["accounts_per_agent"],
-        )
+        self.accounts_per_agent = int(self.init_config["accounts_per_agent"])
 
-        self.random_seed = int(
-            self.init_config["random_seed"],
-        )
+        self.random_seed = int(self.init_config["random_seed"])
 
-        self.num_steps = int(
-            self.init_config["num_steps"],
-        )
+        self.num_steps = int(self.init_config["num_steps"])
 
         self.logger.info(
             (
@@ -108,12 +94,13 @@ class SimulationEngine(Task):
             self.num_steps,
         )
 
-        # Validate Spark environment
         current_environment = self.spark.sql("""
-            SELECT
-                current_catalog() AS current_catalog,
-                current_schema() AS current_schema
-            """).first()
+                SELECT
+                    current_catalog()
+                        AS current_catalog,
+                    current_schema()
+                        AS current_schema
+                """).first()
 
         if current_environment is None:
             raise RuntimeError(("Spark environment query " "returned no rows."))
@@ -124,13 +111,13 @@ class SimulationEngine(Task):
             current_environment["current_schema"],
         )
 
-        # Build simulation runtime
+        # Simulation construction
         self.build_simulation = BuildSimulation(
             num_agents=self.num_agents,
             num_markets=self.num_markets,
             num_companies=self.num_companies,
-            num_institutions=self.num_institutions,
-            accounts_per_agent=self.accounts_per_agent,
+            num_institutions=(self.num_institutions),
+            accounts_per_agent=(self.accounts_per_agent),
             random_seed=self.random_seed,
             spark=self.spark,
             logger=self.logger,
@@ -139,7 +126,7 @@ class SimulationEngine(Task):
         # Observation processing
         self.observation_processor = ObservationProcessor()
 
-        # Shared target field visibility logic
+        # Shared field visibility logic
         self.visible_field_extractor = VisibleFieldExtractor()
 
         # Target discovery
@@ -147,7 +134,7 @@ class SimulationEngine(Task):
             visible_field_extractor=(self.visible_field_extractor),
         )
 
-        # Stable action-target resolution
+        # Stable target resolution
         self.target_reference_resolver = TargetReferenceResolver()
 
         # Magnitude physics
@@ -157,11 +144,14 @@ class SimulationEngine(Task):
 
         self.magnitude_candidate_generator = MagnitudeCandidateGenerator()
 
-        # Concrete action opportunity generation
+        # Concrete action candidate generation
         self.action_candidate_provider = ActionCandidateProvider(
             magnitude_constraint_resolver=(self.magnitude_constraint_resolver),
             magnitude_candidate_generator=(self.magnitude_candidate_generator),
         )
+
+        # Candidate -> numerical feature transformation
+        self.action_candidate_processor = ActionCandidateProcessor()
 
     def _run_step(
         self,
@@ -172,7 +162,7 @@ class SimulationEngine(Task):
         step = simulation.environment.state.step
 
         self.logger.info(
-            "Starting simulation step | step=%s",
+            ("Starting simulation step | " "step=%s"),
             step,
         )
 
@@ -182,21 +172,20 @@ class SimulationEngine(Task):
 
             actor_id = agent.config.agent_id
 
-            # 1. Perceive current environment state
+            # 1. Perceive current environment state.
             observation = simulation.perception.perceive(
                 agent=agent,
                 environment=(simulation.environment),
             )
 
-            # 2. Discover visible environment fields
-            #    eligible for at least one primitive
-            #    transformation.
+            # 2. Discover visible fields that are eligible
+            #    for at least one primitive transformation.
             target_candidates = self.target_candidate_provider.get_candidates(
                 observation=observation,
                 environment=(simulation.environment),
             )
 
-            # 3. Expand target fields into concrete
+            # 3. Expand eligible targets into concrete
             #    target + direction + magnitude candidates.
             action_candidates = self.action_candidate_provider.get_candidates(
                 actor_id=actor_id,
@@ -204,55 +193,67 @@ class SimulationEngine(Task):
                 environment=(simulation.environment),
             )
 
-            # 4. Process semantic perception into
-            #    numerical model input.
+            # 4. Convert semantic observation to numerical
+            #    state features.
             processed_observation = self.observation_processor.process(
+                observation=observation
+            )
+
+            # 5. Encode current perceived state.
+            state_embedding = agent.brain.encode(processed_observation.values)
+
+            # 6. Convert EVERY action candidate into a
+            #    fixed-width numerical representation.
+            processed_action_candidates = self.action_candidate_processor.process_many(
+                candidates=action_candidates,
                 observation=observation,
             )
 
-            # 5. Encode the current perceived state.
+            # 7. Encode EVERY candidate with this agent's
+            #    ActionEncoder.
             #
-            # Candidate evaluation is intentionally not
-            # connected yet. The next architecture stage
-            # will combine this embedding with candidate
-            # representations.
-            state_embedding = agent.brain.encode(
-                processed_observation.values,
+            # Shape:
+            #
+            #     [num_candidates, feature_dim]
+            #                  ↓
+            #     [num_candidates, action_embedding_dim]
+            #
+            action_embeddings = agent.brain.encode_actions(
+                processed_action_candidates.values
             )
 
             agent_opportunity_sets.append(
                 (
                     agent,
                     state_embedding,
-                    tuple(
-                        action_candidates,
-                    ),
+                    processed_action_candidates,
+                    action_embeddings,
                 )
             )
 
             self.logger.info(
                 (
-                    "Agent opportunity set generated | "
+                    "Agent opportunity set encoded | "
                     "step=%s | "
                     "agent_id=%s | "
-                    "features=%s | "
+                    "state_features=%s | "
                     "target_candidates=%s | "
-                    "action_candidates=%s"
+                    "action_candidates=%s | "
+                    "action_feature_dim=%s | "
+                    "action_embedding_shape=%s"
                 ),
                 step,
                 actor_id,
-                processed_observation.feature_names,
-                len(
-                    target_candidates,
-                ),
-                len(
-                    action_candidates,
-                ),
+                len(processed_observation.feature_names),
+                len(target_candidates),
+                len(action_candidates),
+                (processed_action_candidates.values.shape[-1]),
+                tuple(action_embeddings.shape),
             )
 
             self.logger.debug(
                 (
-                    "Agent action candidates | "
+                    "Encoded action candidates | "
                     "step=%s | "
                     "agent_id=%s | "
                     "candidates=%s"
@@ -261,35 +262,54 @@ class SimulationEngine(Task):
                 actor_id,
                 [
                     {
-                        "object_type": (candidate.target.object_type),
-                        "object_id": (candidate.target.object_id),
-                        "field_name": (candidate.target.field_name),
+                        "target": {
+                            "object_type": (candidate.target.object_type),
+                            "object_id": (candidate.target.object_id),
+                            "field_name": (candidate.target.field_name),
+                        },
                         "direction": (candidate.direction.value),
                         "magnitude": (candidate.magnitude),
+                        "features": (
+                            processed_action_candidates.values[candidate_index]
+                            .detach()
+                            .tolist()
+                        ),
+                        "embedding": (
+                            action_embeddings[candidate_index].detach().tolist()
+                        ),
                     }
-                    for candidate in action_candidates
+                    for (
+                        candidate_index,
+                        candidate,
+                    ) in enumerate(processed_action_candidates.candidates)
                 ],
             )
 
-        # Next development stage:
+        # Next architecture stage:
         #
-        # 6. Encode every ActionCandidate
-        # 7. Score state + candidate combinations
-        # 8. Add explicit no-op option
-        # 9. Explore/select one candidate per agent
-        # 10. Collect all requested actions
-        # 11. Jointly resolve requests against environment
-        # 12. Measure objective consequences
-        # 13. Form subjective rewards
-        # 14. Store experience
-        # 15. Perform reinforcement-learning updates
+        # state_embedding
+        # +
+        # each action_embedding
+        #     ↓
+        # ValueNetwork
+        #     ↓
+        # predicted long-term value per candidate
+        #
+        # Then:
+        #
+        # - explicit no-op candidate
+        # - exploration / selection
+        # - collect all selected requests
+        # - jointly resolve world transition
+        # - objective consequences
+        # - subjective reward
+        # - experience storage
+        # - RL update
 
         self.logger.info(
             ("Simulation step completed | " "step=%s | " "agent_opportunity_sets=%s"),
             step,
-            len(
-                agent_opportunity_sets,
-            ),
+            len(agent_opportunity_sets),
         )
 
     def run(
@@ -300,18 +320,14 @@ class SimulationEngine(Task):
 
         simulation = self.build_simulation.run()
 
-        for _ in range(
-            self.num_steps,
-        ):
+        for _ in range(self.num_steps):
 
-            self._run_step(
-                simulation=simulation,
-            )
+            self._run_step(simulation=simulation)
 
             simulation.environment.state.step += 1
 
         self.logger.info(
             ("Simulation engine completed | " "steps_completed=%s | " "final_step=%s"),
             self.num_steps,
-            simulation.environment.state.step,
+            (simulation.environment.state.step),
         )
