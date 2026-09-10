@@ -8,7 +8,7 @@ resources:
         default: "false"
 
       - name: dev_catalog
-        default: "main_catalog"
+        default: "personal_dev"
 
       - name: num_steps
         default: "10"
