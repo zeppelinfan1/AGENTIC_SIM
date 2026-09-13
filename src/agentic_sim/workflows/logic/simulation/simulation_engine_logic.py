@@ -3,11 +3,11 @@ from agentic_sim.workflows.task import Task
 from agentic_sim.workflows.logic.actions.action_candidate_provider import (
     ActionCandidateProvider,
 )
-from agentic_sim.workflows.logic.actions.encoding.action_candidate_processor import (
-    ActionCandidateProcessor,
-)
 from agentic_sim.workflows.logic.actions.action_candidate_value import (
     ValuedActionCandidates,
+)
+from agentic_sim.workflows.logic.actions.encoding.action_candidate_processor import (
+    ActionCandidateProcessor,
 )
 from agentic_sim.workflows.logic.actions.magnitude.magnitude_candidate_generator import (
     MagnitudeCandidateGenerator,
@@ -26,6 +26,9 @@ from agentic_sim.workflows.logic.agents.observation.observation_processor import
 )
 from agentic_sim.workflows.logic.environment.perception.extractor import (
     VisibleFieldExtractor,
+)
+from agentic_sim.workflows.logic.reward.positive_balance import (
+    PositiveBalanceRewardMechanism,
 )
 from agentic_sim.workflows.logic.simulation.build_simulation_logic import (
     BuildSimulation,
@@ -51,26 +54,18 @@ class SimulationEngine(Task):
         self,
         **kwargs,
     ) -> None:
-
         super().__init__(**kwargs)
 
         # Runtime parameters
         self.is_dev_run = self.get_bool_parameter("is_dev_run")
-
         self.dev_catalog = self.init_config["dev_catalog"]
 
         self.num_agents = int(self.init_config["num_agents"])
-
         self.num_markets = int(self.init_config["num_markets"])
-
         self.num_companies = int(self.init_config["num_companies"])
-
         self.num_institutions = int(self.init_config["num_institutions"])
-
         self.accounts_per_agent = int(self.init_config["accounts_per_agent"])
-
         self.random_seed = int(self.init_config["random_seed"])
-
         self.num_steps = int(self.init_config["num_steps"])
 
         self.logger.info(
@@ -97,16 +92,15 @@ class SimulationEngine(Task):
             self.num_steps,
         )
 
+        # Validate Spark connection
         current_environment = self.spark.sql("""
-                SELECT
-                    current_catalog()
-                        AS current_catalog,
-                    current_schema()
-                        AS current_schema
-                """).first()
+            SELECT
+                current_catalog() AS current_catalog,
+                current_schema() AS current_schema
+            """).first()
 
         if current_environment is None:
-            raise RuntimeError(("Spark environment query " "returned no rows."))
+            raise RuntimeError("Spark environment query returned no rows.")
 
         self.logger.info(
             ("Spark connection successful | " "catalog=%s | " "schema=%s"),
@@ -114,13 +108,13 @@ class SimulationEngine(Task):
             current_environment["current_schema"],
         )
 
-        # Simulation construction
+        # Build simulation runtime
         self.build_simulation = BuildSimulation(
             num_agents=self.num_agents,
             num_markets=self.num_markets,
             num_companies=self.num_companies,
-            num_institutions=(self.num_institutions),
-            accounts_per_agent=(self.accounts_per_agent),
+            num_institutions=self.num_institutions,
+            accounts_per_agent=self.accounts_per_agent,
             random_seed=self.random_seed,
             spark=self.spark,
             logger=self.logger,
@@ -129,32 +123,36 @@ class SimulationEngine(Task):
         # Observation processing
         self.observation_processor = ObservationProcessor()
 
-        # Shared field visibility logic
+        # Visibility / target discovery
         self.visible_field_extractor = VisibleFieldExtractor()
 
-        # Target discovery
         self.target_candidate_provider = TargetCandidateProvider(
-            visible_field_extractor=(self.visible_field_extractor),
+            visible_field_extractor=self.visible_field_extractor,
         )
 
-        # Stable target resolution
+        # Resolve stable target references against current environment
         self.target_reference_resolver = TargetReferenceResolver()
 
-        # Magnitude physics
+        # Determine feasible action magnitudes
         self.magnitude_constraint_resolver = MagnitudeConstraintResolver(
             target_reference_resolver=(self.target_reference_resolver),
         )
 
         self.magnitude_candidate_generator = MagnitudeCandidateGenerator()
 
-        # Concrete action candidate generation
+        # Generate concrete target + direction + magnitude actions
         self.action_candidate_provider = ActionCandidateProvider(
             magnitude_constraint_resolver=(self.magnitude_constraint_resolver),
             magnitude_candidate_generator=(self.magnitude_candidate_generator),
         )
 
-        # Candidate -> numerical feature transformation
+        # Convert action candidates into neural-network features
         self.action_candidate_processor = ActionCandidateProcessor()
+
+        # Current V1 reward definition
+        self.reward_mechanism = PositiveBalanceRewardMechanism(
+            reward_scale=1.0,
+        )
 
     def _run_step(
         self,
@@ -165,7 +163,7 @@ class SimulationEngine(Task):
         step = simulation.environment.state.step
 
         self.logger.info(
-            ("Starting simulation step | " "step=%s"),
+            "Starting simulation step | step=%s",
             step,
         )
 
@@ -175,45 +173,38 @@ class SimulationEngine(Task):
 
             actor_id = agent.config.agent_id
 
-            # 1. Perceive current environment state.
+            # 1. Observe the current world.
             observation = simulation.perception.perceive(
                 agent=agent,
-                environment=(simulation.environment),
+                environment=simulation.environment,
             )
 
-            # 2. Discover visible fields that are eligible
-            #    for at least one primitive transformation.
+            # 2. Find visible fields that can participate in actions.
             target_candidates = self.target_candidate_provider.get_candidates(
                 observation=observation,
-                environment=(simulation.environment),
+                environment=simulation.environment,
             )
 
-            # 3. Expand eligible targets into concrete
-            #    target + direction + magnitude candidates.
+            # 3. Build concrete action candidates.
             action_candidates = self.action_candidate_provider.get_candidates(
                 actor_id=actor_id,
-                target_candidates=(target_candidates),
-                environment=(simulation.environment),
+                target_candidates=target_candidates,
+                environment=simulation.environment,
             )
 
-            # 4. Convert semantic observation to numerical
-            #    state features.
+            # 4. Convert the current observation into model features.
             processed_observation = self.observation_processor.process(
-                observation=observation
+                observation=observation,
             )
 
-            # 5. Encode current perceived state.
-            state_embedding = agent.brain.encode(processed_observation.values)
-
-            # 6. Convert EVERY action candidate into a
-            #    fixed-width numerical representation.
+            # 5. Convert every action candidate into model features.
             processed_action_candidates = self.action_candidate_processor.process_many(
                 candidates=action_candidates,
                 observation=observation,
             )
 
-            # 7. Encode the current state, encode every candidate,
-            #    and predict one long-term value for every candidate.
+            # 6. Encode the state and actions, then predict a value
+            #    for every available action candidate.
             (
                 state_embedding,
                 action_embeddings,
@@ -223,8 +214,8 @@ class SimulationEngine(Task):
                 action_features=(processed_action_candidates.values),
             )
 
-            # 8. Preserve the exact positional mapping between
-            #    semantic candidates and their predicted values.
+            # 7. Keep each semantic candidate aligned with its
+            #    predicted value.
             valued_action_candidates = ValuedActionCandidates(
                 candidates=(processed_action_candidates.candidates),
                 predicted_values=predicted_values,
@@ -241,10 +232,9 @@ class SimulationEngine(Task):
 
             self.logger.info(
                 (
-                    "Agent opportunity values predicted | "
+                    "Agent opportunities evaluated | "
                     "step=%s | "
                     "agent_id=%s | "
-                    "state_features=%s | "
                     "target_candidates=%s | "
                     "action_candidates=%s | "
                     "action_embedding_shape=%s | "
@@ -252,7 +242,6 @@ class SimulationEngine(Task):
                 ),
                 step,
                 actor_id,
-                len(processed_observation.feature_names),
                 len(target_candidates),
                 len(action_candidates),
                 tuple(action_embeddings.shape),
@@ -276,8 +265,8 @@ class SimulationEngine(Task):
                             "field_name": (candidate.target.field_name),
                         },
                         "direction": (candidate.direction.value),
-                        "magnitude": (candidate.magnitude),
-                        "predicted_long_term_value": (
+                        "magnitude": candidate.magnitude,
+                        "predicted_value": (
                             valued_action_candidates.predicted_values[
                                 candidate_index
                             ].item()
@@ -289,6 +278,18 @@ class SimulationEngine(Task):
                     ) in enumerate(valued_action_candidates.candidates)
                 ],
             )
+
+        # Reward cannot be calculated yet.
+        #
+        # The next stages are:
+        #
+        # 1. Select one action per agent.
+        # 2. Capture each agent's pre-action reward state.
+        # 3. Execute / jointly resolve the selected actions.
+        # 4. Capture each agent's post-action reward state.
+        # 5. Calculate reward.
+        # 6. Store the transition.
+        # 7. Train the value network.
 
         self.logger.info(
             ("Simulation step completed | " "step=%s | " "agent_opportunity_sets=%s"),
@@ -306,12 +307,14 @@ class SimulationEngine(Task):
 
         for _ in range(self.num_steps):
 
-            self._run_step(simulation=simulation)
+            self._run_step(
+                simulation=simulation,
+            )
 
             simulation.environment.state.step += 1
 
         self.logger.info(
             ("Simulation engine completed | " "steps_completed=%s | " "final_step=%s"),
             self.num_steps,
-            (simulation.environment.state.step),
+            simulation.environment.state.step,
         )
