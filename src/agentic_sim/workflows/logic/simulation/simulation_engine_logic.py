@@ -34,6 +34,9 @@ from agentic_sim.workflows.logic.simulation.build_simulation_logic import (
     BuildSimulation,
     SimulationContext,
 )
+from agentic_sim.workflows.logic.actions.selection.greedy import (
+    GreedyActionSelector,
+)
 
 
 class SimulationEngine(Task):
@@ -149,6 +152,9 @@ class SimulationEngine(Task):
         # Convert action candidates into neural-network features
         self.action_candidate_processor = ActionCandidateProcessor()
 
+        # Action selection
+        self.action_selector = GreedyActionSelector()
+
         # Current V1 reward definition
         self.reward_mechanism = PositiveBalanceRewardMechanism(
             reward_scale=1.0,
@@ -167,7 +173,7 @@ class SimulationEngine(Task):
             step,
         )
 
-        agent_opportunity_sets = []
+        agent_decisions = []
 
         for agent in simulation.agents:
 
@@ -221,32 +227,58 @@ class SimulationEngine(Task):
                 predicted_values=predicted_values,
             )
 
-            agent_opportunity_sets.append(
+            # 8. Select the candidate with the highest predicted value.
+            selected_action = self.action_selector.select(
+                valued_candidates=valued_action_candidates,
+            )
+
+            agent_decisions.append(
                 (
                     agent,
                     state_embedding,
                     action_embeddings,
                     valued_action_candidates,
+                    selected_action,
                 )
             )
 
-            self.logger.info(
-                (
-                    "Agent opportunities evaluated | "
-                    "step=%s | "
-                    "agent_id=%s | "
-                    "target_candidates=%s | "
-                    "action_candidates=%s | "
-                    "action_embedding_shape=%s | "
-                    "predicted_values_shape=%s"
-                ),
-                step,
-                actor_id,
-                len(target_candidates),
-                len(action_candidates),
-                tuple(action_embeddings.shape),
-                tuple(predicted_values.shape),
-            )
+            if selected_action is None:
+                self.logger.info(
+                    (
+                        "No action selected | "
+                        "step=%s | "
+                        "agent_id=%s | "
+                        "reason=no_candidates"
+                    ),
+                    step,
+                    actor_id,
+                )
+
+            else:
+                candidate = selected_action.candidate
+                self.logger.info(
+                    (
+                        "Action selected | "
+                        "step=%s | "
+                        "agent_id=%s | "
+                        "candidate_index=%s | "
+                        "object_type=%s | "
+                        "object_id=%s | "
+                        "field=%s | "
+                        "direction=%s | "
+                        "magnitude=%s | "
+                        "predicted_value=%s"
+                    ),
+                    step,
+                    actor_id,
+                    selected_action.candidate_index,
+                    candidate.target.object_type,
+                    candidate.target.object_id,
+                    candidate.target.field_name,
+                    candidate.direction.value,
+                    candidate.magnitude,
+                    selected_action.predicted_value,
+                )
 
             self.logger.debug(
                 (
@@ -292,9 +324,9 @@ class SimulationEngine(Task):
         # 7. Train the value network.
 
         self.logger.info(
-            ("Simulation step completed | " "step=%s | " "agent_opportunity_sets=%s"),
+            ("Simulation step completed | " "step=%s | " "agent_decisions=%s"),
             step,
-            len(agent_opportunity_sets),
+            len(agent_decisions),
         )
 
     def run(
